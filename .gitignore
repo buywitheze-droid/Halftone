@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+.env/
+
+# Distribución / build
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Pruebas / cobertura
+.coverage
+.coverage.*
+.pytest_cache/
+.tox/
+htmlcov/
+
+# IDE / editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cursor / IA
+.cursor/
+.cursorrules
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup local del backend Python anterior
+*.bak
+
+# Archivos de prueba locales (descomenta si no quieres subir imagenes)
+# *.png
+# *.jpg
+# *.jpeg
+# *.webp
+
+# Logs
+*.log

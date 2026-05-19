@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Semitonos DTF · Separación para prenda negra</title>
+<style>
+:root{
+  --bg:#0e0e12; --card:#181822; --line:#2a2a38; --text:#ececf2;
+  --muted:#8b8b9c; --cyan:#22e0d3; --pink:#ff3ea5; --ok:#58e389;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;height:100%;
+  background:radial-gradient(1200px 700px at 85% -5%, #1a1338 0%, var(--bg) 60%) fixed;
+  color:var(--text);
+  font:14px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+body{padding:24px}
+.wrap{max-width:1320px;margin:auto;display:grid;grid-template-columns:380px 1fr;gap:24px}
+.col-left{display:flex;flex-direction:column;gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.card h2{margin:0 0 14px;font-size:15px;letter-spacing:.4px}
+.card h3{margin:14px 0 8px;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--cyan);display:flex;align-items:center;gap:8px}
+.card h3::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+label{display:block;margin-top:12px;font-size:12px;color:var(--muted)}
+label .val{float:right;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;border-radius:4px;
+  background:linear-gradient(90deg,#2a2a3a,var(--cyan));outline:none;margin-top:6px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:#fff;border:2px solid var(--cyan);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+  background:#fff;border:2px solid var(--cyan);cursor:pointer}
+input[type=number],input[type=file]{
+  width:100%;padding:9px 10px;background:#101019;color:var(--text);
+  border:1px solid var(--line);border-radius:8px;outline:none;font-size:13px
+}
+input[type=number]:focus{border-color:var(--cyan)}
+input[type=file]{cursor:pointer}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:4px 0}
+.kv b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.info-box{background:#101019;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px}
+.btn{
+  width:100%;padding:11px;border:0;border-radius:10px;background:#fff;color:#111;
+  font-weight:700;cursor:pointer;font-size:13px;margin-top:14px;
+}
+.btn.primary{background:linear-gradient(135deg,var(--cyan),#0ca99b);color:#001513;
+  box-shadow:0 6px 18px rgba(34,224,211,.25)}
+.btn.pink{background:linear-gradient(135deg,var(--pink),#c41e7f);color:#1a0010}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:10px}
+.toggle input{accent-color:var(--cyan)}
+small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
+
+/* Viewer */
+.viewer{
+  position:relative;background:#000;height:80vh;min-height:540px;
+  border-radius:14px;overflow:hidden;border:1px solid var(--line);
+  cursor:grab;user-select:none;
+}
+.viewer.grabbing{cursor:grabbing}
+.viewer-stage{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  transform-origin:0 0;will-change:transform;
+}
+.viewer-stage canvas{
+  position:absolute;top:0;left:0;display:none;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+}
+.viewer.has-image .viewer-stage canvas{display:block}
+.viewer-checker{
+  position:absolute;inset:0;background:#000;
+  background-image:
+    linear-gradient(45deg,#0a0a0a 25%,transparent 25%),
+    linear-gradient(-45deg,#0a0a0a 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,#0a0a0a 75%),
+    linear-gradient(-45deg,transparent 75%,#0a0a0a 75%);
+  background-size:16px 16px;
+  background-position:0 0,0 8px,8px -8px,-8px 0;
+  display:none;
+}
+.viewer.show-checker .viewer-checker{display:block}
+.viewer-toolbar{
+  position:absolute;top:10px;right:10px;z-index:10;
+  display:flex;gap:2px;align-items:center;
+  background:rgba(15,15,22,.78);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:4px;backdrop-filter:blur(10px);
+  font-size:12px;color:var(--text);
+}
+.viewer-toolbar button{
+  background:transparent;border:0;color:var(--text);
+  width:30px;height:28px;border-radius:6px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:600;transition:background .12s;
+}
+.viewer-toolbar button:hover{background:rgba(255,255,255,.08)}
+.viewer-toolbar .zoom-level{
+  min-width:54px;text-align:center;color:var(--muted);
+  font-variant-numeric:tabular-nums;padding:0 6px;
+}
+.viewer-toolbar .sep{width:1px;height:18px;background:rgba(255,255,255,.1);margin:0 4px}
+.viewer-toolbar button.active{background:rgba(34,224,211,.18);color:var(--cyan)}
+.viewer-hud{
+  position:absolute;bottom:10px;left:10px;z-index:10;
+  background:rgba(15,15,22,.78);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:6px 10px;
+  font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;
+  pointer-events:none;display:none;
+}
+.viewer.has-image .viewer-hud{display:block}
+.viewer-busy{
+  position:absolute;bottom:10px;right:10px;z-index:10;
+  background:rgba(15,15,22,.78);border:1px solid rgba(34,224,211,.35);
+  border-radius:999px;padding:5px 11px 5px 9px;
+  font-size:11px;color:var(--cyan);
+  display:none;align-items:center;gap:7px;pointer-events:none;
+}
+.viewer-busy.on{display:flex}
+.viewer-busy::before{
+  content:"";width:7px;height:7px;border-radius:50%;
+  background:var(--cyan);box-shadow:0 0 8px var(--cyan);
+  animation:pulse 1s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.placeholder{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:13px;text-align:center;padding:40px 20px;pointer-events:none;
+}
+.viewer.has-image .placeholder{display:none}
+
+.status{margin-top:10px;font-size:12px;color:var(--muted);min-height:16px}
+.status.busy{color:var(--cyan)}
+.status.err{color:#ff7a8e}
+.disabled-card{opacity:.4;pointer-events:none}
+@media(max-width:980px){.wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="col-left">
+
+    <!-- 1. SUBIR + PREPARACION -->
+    <div class="card" id="card-prep">
+      <h2>1 · Subir y preparar</h2>
+      <input type="file" id="file" accept="image/png,image/jpeg,image/webp">
+
+      <div id="prep-block" style="display:none">
+        <h3>Imagen original</h3>
+        <div class="info-box">
+          <div class="kv"><span>Tamaño</span><b id="i_px">—</b></div>
+          <div class="kv"><span>DPI embebido</span><b id="i_dpi">—</b></div>
+          <div class="kv"><span>Tamaño físico</span><b id="i_cm">—</b></div>
+        </div>
+
+        <h3>Tamaño destino</h3>
+        <div class="row">
+          <div>
+            <label>Ancho (cm)</label>
+            <input type="number" id="new_w_cm" step="0.1" min="0.5" value="32">
+          </div>
+          <div>
+            <label>Alto (cm)</label>
+            <input type="number" id="new_h_cm" step="0.1" min="0.5" value="32">
+          </div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="lock_ratio" checked>
+          Mantener proporción
+        </label>
+
+        <h3>DPI de trabajo</h3>
+        <input type="number" id="target_dpi" value="300" step="1" min="72" max="1200">
+
+        <div class="info-box" style="margin-top:12px">
+          <div class="kv"><span>Resultado en píxeles</span><b id="i_target_px">—</b></div>
+          <div class="kv"><span>Factor de escala</span><b id="i_scale">—</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. AJUSTES TONALES -->
+    <div class="card disabled-card" id="card-tonal">
+      <h2>2 · Ajustes tonales</h2>
+
+      <label>Brillo <span class="val" id="v_brightness">1.00</span></label>
+      <input type="range" id="brightness" min="0.4" max="1.8" step="0.01" value="1">
+
+      <label>Contraste <span class="val" id="v_contrast">1.20</span></label>
+      <input type="range" id="contrast" min="0.4" max="2.5" step="0.01" value="1.2">
+
+      <label>Nitidez <span class="val" id="v_sharpness">1.20</span></label>
+      <input type="range" id="sharpness" min="0" max="3" step="0.05" value="1.2">
+
+      <label>Corte negro (transparente) <span class="val" id="v_black_cut">35</span></label>
+      <input type="range" id="black_cut" min="0" max="180" step="1" value="35">
+
+      <label>Corte blanco (sólido) <span class="val" id="v_white_cut">225</span></label>
+      <input type="range" id="white_cut" min="80" max="255" step="1" value="225">
+
+      <label>Gamma / medios tonos <span class="val" id="v_gamma">1.00</span></label>
+      <input type="range" id="gamma" min="0.3" max="2.5" step="0.01" value="1">
+    </div>
+
+    <!-- 3. SEMITONO -->
+    <div class="card disabled-card" id="card-screen">
+      <h2>3 · Trama de semitono</h2>
+
+      <label>LPI <span class="val" id="v_lpi">35</span></label>
+      <input type="range" id="lpi" min="15" max="65" step="1" value="35">
+
+      <label>Ángulo <span class="val" id="v_angle">22.5</span></label>
+      <input type="range" id="angle" min="0" max="90" step="0.5" value="22.5">
+
+      <label>Punto mínimo (mm) <span class="val" id="v_min_dot_mm">0.20</span></label>
+      <input type="range" id="min_dot_mm" min="0" max="0.8" step="0.01" value="0.2">
+
+      <label class="toggle">
+        <input type="checkbox" id="soft_edges">
+        Bordes suaves (anti-alias del alpha)
+      </label>
+
+      <label class="toggle">
+        <input type="checkbox" id="realtime" checked>
+        Tiempo real (se actualiza al mover sliders)
+      </label>
+
+      <button class="btn primary" id="btn-process" disabled>Procesar ahora</button>
+      <a id="download" style="display:none">
+        <button class="btn pink" type="button">Descargar PNG transparente</button>
+      </a>
+      <div class="status" id="status"></div>
+
+      <small>
+        Negro = transparente. Blanco = sólido. Grises = trama. Vista sobre fondo negro,
+        pero el PNG conserva transparencia real y el DPI elegido queda embebido.
+      </small>
+    </div>
+  </div>
+
+  <!-- VISTA PREVIA -->
+  <div class="card">
+    <h2>Vista previa</h2>
+    <div class="viewer" id="viewer">
+      <div class="viewer-checker"></div>
+      <div class="viewer-stage" id="stage">
+        <canvas id="result"></canvas>
+      </div>
+      <div class="viewer-toolbar">
+        <button id="vt_zoom_out" title="Alejar (-)">−</button>
+        <button id="vt_zoom_in"  title="Acercar (+)">+</button>
+        <span class="zoom-level" id="vt_zoom_lvl">—</span>
+        <div class="sep"></div>
+        <button id="vt_fit"   title="Ajustar a vista (0)">⤧</button>
+        <button id="vt_100"   title="Tamaño real 100% (1)">1:1</button>
+        <div class="sep"></div>
+        <button id="vt_checker" title="Mostrar fondo a cuadros (C)">▦</button>
+      </div>
+      <div class="viewer-hud" id="vt_hud">—</div>
+      <div class="viewer-busy" id="vt_busy">Procesando</div>
+      <div class="placeholder">Sube una imagen para comenzar</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ==================================================================
+  //   Constantes
+  // ==================================================================
+  const INCH_MM = 25.4;
+  const INCH_CM = 2.54;
+
+  const $ = (id) => document.getElementById(id);
+
+  // ==================================================================
+  //   Estado global
+  // ==================================================================
+  const S = {
+    sourceCanvas: null,    // imagen original en RGBA a su tamaño original
+    sourceDpi: 72,
+    sourceDpiKnown: false,
+    origW: 0, origH: 0,
+    ratio: 1,              // alto/ancho original
+    updatingRatio: false,
+    firstResult: true,     // primer resultado tras subir => fit al visor
+    fileName: 'arte',
+  };
+
+  // ==================================================================
+  //   Live labels para los sliders
+  // ==================================================================
+  ['brightness','contrast','sharpness','black_cut','white_cut','gamma','lpi','angle','min_dot_mm']
+    .forEach((id) => {
+      const el = $(id), out = $('v_' + id);
+      if (!el || !out) return;
+      const upd = () => out.textContent = el.value;
+      el.addEventListener('input', upd);
+      upd();
+    });
+
+  // ==================================================================
+  //   File handling + lectura de DPI
+  // ==================================================================
+  $('file').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    S.fileName = (f.name || 'arte').replace(/\.[^.]+$/, '') || 'arte';
+    S.firstResult = true;
+    await loadAndInspect(f);
+  });
+
+  async function loadAndInspect(file){
+    setStatus('Analizando imagen...', 'busy');
+    try {
+      // Leer DPI directamente del archivo (PNG pHYs / JPEG JFIF)
+      const buf = await file.arrayBuffer();
+      const dpiInfo = readDpiFromBuffer(buf);
+
+      // Decodificar a HTMLImage para llevarlo a un canvas RGBA
+      const bmp = await loadImageFromBlob(new Blob([buf], { type: file.type }));
+      const c = document.createElement('canvas');
+      c.width = bmp.naturalWidth || bmp.width;
+      c.height = bmp.naturalHeight || bmp.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(bmp, 0, 0);
+
+      S.sourceCanvas = c;
+      S.origW = c.width;
+      S.origH = c.height;
+      S.ratio = c.height / c.width;
+      S.sourceDpi = dpiInfo ? dpiInfo.dpi : 72;
+      S.sourceDpiKnown = !!dpiInfo;
+
+      const wcm = (c.width  / S.sourceDpi) * INCH_CM;
+      const hcm = (c.height / S.sourceDpi) * INCH_CM;
+
+      $('i_px').textContent  = `${c.width} × ${c.height} px`;
+      $('i_dpi').textContent = S.sourceDpiKnown
+        ? `${Math.round(S.sourceDpi*10)/10}`
+        : `${Math.round(S.sourceDpi*10)/10} (no embebido, asumido)`;
+      $('i_cm').textContent  = `${wcm.toFixed(2)} × ${hcm.toFixed(2)} cm`;
+
+      // Sugerencia: si original > 50 cm, sugerir 32; si no, conservar tamaño real
+      let suggW;
+      if (wcm >= 50) suggW = 32;
+      else if (wcm > 0) suggW = +wcm.toFixed(1);
+      else suggW = 32;
+      $('new_w_cm').value = suggW;
+      $('new_h_cm').value = (suggW * S.ratio).toFixed(2);
+
+      $('prep-block').style.display = '';
+      $('card-tonal').classList.remove('disabled-card');
+      $('card-screen').classList.remove('disabled-card');
+      $('btn-process').disabled = false;
+      updateTargetInfo();
+      setStatus('Imagen lista. Generando primer resultado...');
+      scheduleProcess(0);
+    } catch (err){
+      console.error(err);
+      setStatus('Error: ' + err.message, 'err');
+    }
+  }
+
+  function loadImageFromBlob(blob){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = (e) => { URL.revokeObjectURL(url); reject(new Error('No se pudo decodificar la imagen')); };
+      img.src = url;
+    });
+  }
+
+  // ---- Lectura del DPI directamente de los bytes del archivo ----
+  function readDpiFromBuffer(arrayBuffer){
+    const u8 = new Uint8Array(arrayBuffer);
+    if (u8.length < 8) return null;
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47
+     && u8[4]===0x0D && u8[5]===0x0A && u8[6]===0x1A && u8[7]===0x0A){
+      const dv = new DataView(arrayBuffer);
+      let pos = 8;
+      while (pos + 12 <= u8.length){
+        const len = dv.getUint32(pos);
+        const t0 = u8[pos+4], t1 = u8[pos+5], t2 = u8[pos+6], t3 = u8[pos+7];
+        const type = String.fromCharCode(t0, t1, t2, t3);
+        if (type === 'pHYs' && pos + 8 + 9 <= u8.length){
+          const ppmX = dv.getUint32(pos+8);
+          const ppmY = dv.getUint32(pos+12);
+          const unit = u8[pos+16];
+          if (unit === 1 && ppmX > 0){
+            // pixels per meter -> DPI
+            const dpi = (ppmX + ppmY) / 2 * 0.0254;
+            return { dpi };
+          }
+        }
+        if (type === 'IDAT' || type === 'IEND') break;
+        pos += 12 + len; // 4 length + 4 type + len + 4 crc
+        if (len < 0 || len > u8.length) break;
+      }
+      return null;
+    }
+    // JPEG: FF D8 ...
+    if (u8[0]===0xFF && u8[1]===0xD8){
+      let pos = 2;
+      while (pos + 4 < u8.length){
+        if (u8[pos] !== 0xFF) break;
+        const marker = u8[pos+1];
+        // SOI/EOI sin longitud
+        if (marker === 0xD8 || marker === 0xD9){ pos += 2; continue; }
+        const len = (u8[pos+2] << 8) | u8[pos+3];
+        if (marker === 0xE0 && len >= 14){
+          // JFIF?
+          const id = String.fromCharCode(u8[pos+4], u8[pos+5], u8[pos+6], u8[pos+7], u8[pos+8]);
+          if (id === 'JFIF\0'){
+            const units = u8[pos+11];
+            const xDen = (u8[pos+12] << 8) | u8[pos+13];
+            const yDen = (u8[pos+14] << 8) | u8[pos+15];
+            if (units === 1 && xDen > 0) return { dpi: (xDen + yDen) / 2 };           // dots/inch
+            if (units === 2 && xDen > 0) return { dpi: (xDen + yDen) / 2 * 2.54 };    // dots/cm -> dpi
+          }
+        }
+        if (marker === 0xE1 && len >= 14){
+          // EXIF (APP1) - lectura limitada: buscamos XResolution (0x011A)
+          // Marker -> "Exif\0\0" -> TIFF header
+          const startExif = pos + 4;
+          if (startExif + 10 < u8.length
+            && u8[startExif]===0x45 && u8[startExif+1]===0x78
+            && u8[startExif+2]===0x69 && u8[startExif+3]===0x66){
+            const tiffStart = startExif + 6;
+            const little = (u8[tiffStart]===0x49 && u8[tiffStart+1]===0x49);
+            const dv = new DataView(arrayBuffer);
+            const getU16 = (p) => little ? dv.getUint16(p,true) : dv.getUint16(p,false);
+            const getU32 = (p) => little ? dv.getUint32(p,true) : dv.getUint32(p,false);
+            const ifdOffset = getU32(tiffStart + 4);
+            const ifd0 = tiffStart + ifdOffset;
+            if (ifd0 < u8.length - 2){
+              const numEntries = getU16(ifd0);
+              let dpi = null, units = 2; // 2 = inch (default)
+              for (let i=0; i<numEntries; i++){
+                const e = ifd0 + 2 + i*12;
+                if (e + 12 > u8.length) break;
+                const tag = getU16(e);
+                if (tag === 0x011A){ // XResolution: RATIONAL
+                  const valOff = tiffStart + getU32(e + 8);
+                  if (valOff + 8 <= u8.length){
+                    const num = getU32(valOff);
+                    const den = getU32(valOff + 4);
+                    if (den !== 0) dpi = num / den;
+                  }
+                } else if (tag === 0x0128){
+                  // ResolutionUnit: SHORT  2=inch, 3=cm
+                  units = getU16(e + 8);
+                }
+              }
+              if (dpi){
+                if (units === 3) dpi *= 2.54;
+                return { dpi };
+              }
+            }
+          }
+        }
+        pos += 2 + len;
+      }
+      return null;
+    }
+    return null;
+  }
+
+  // ==================================================================
+  //   UI: candado de proporción + tamaño destino
+  // ==================================================================
+  $('new_w_cm').addEventListener('input', () => {
+    if (S.updatingRatio || !S.ratio){ updateTargetInfo(); scheduleProcess(); return; }
+    if ($('lock_ratio').checked){
+      S.updatingRatio = true;
+      const w = parseFloat($('new_w_cm').value) || 0;
+      $('new_h_cm').value = (w * S.ratio).toFixed(2);
+      S.updatingRatio = false;
+    }
+    updateTargetInfo(); scheduleProcess();
+  });
+  $('new_h_cm').addEventListener('input', () => {
+    if (S.updatingRatio || !S.ratio){ updateTargetInfo(); scheduleProcess(); return; }
+    if ($('lock_ratio').checked){
+      S.updatingRatio = true;
+      const h = parseFloat($('new_h_cm').value) || 0;
+      $('new_w_cm').value = (h / S.ratio).toFixed(2);
+      S.updatingRatio = false;
+    }
+    updateTargetInfo(); scheduleProcess();
+  });
+  $('lock_ratio').addEventListener('change', () => {
+    if ($('lock_ratio').checked){
+      const w = parseFloat($('new_w_cm').value) || 0;
+      $('new_h_cm').value = (w * S.ratio).toFixed(2);
+      updateTargetInfo(); scheduleProcess();
+    }
+  });
+  $('target_dpi').addEventListener('input', () => { updateTargetInfo(); scheduleProcess(); });
+
+  function updateTargetInfo(){
+    const w = parseFloat($('new_w_cm').value) || 0;
+    const h = parseFloat($('new_h_cm').value) || 0;
+    const dpi = parseFloat($('target_dpi').value) || 300;
+    const wpx = Math.round(w / INCH_CM * dpi);
+    const hpx = Math.round(h / INCH_CM * dpi);
+    $('i_target_px').textContent = `${wpx} × ${hpx} px`;
+    const scale = S.origW ? (wpx / S.origW) : 1;
+    $('i_scale').textContent = scale ? `${scale.toFixed(3)}×` : '—';
+  }
+
+  // ==================================================================
+  //   PIPELINE
+  // ==================================================================
+  function readParams(){
+    return {
+      brightness: parseFloat($('brightness').value),
+      contrast:   parseFloat($('contrast').value),
+      sharpness:  parseFloat($('sharpness').value),
+      blackCut:   parseFloat($('black_cut').value),
+      whiteCut:   parseFloat($('white_cut').value),
+      gamma:      Math.max(0.05, parseFloat($('gamma').value)),
+      lpi:        Math.max(5, parseFloat($('lpi').value)),
+      angleDeg:   parseFloat($('angle').value),
+      minDotMm:   Math.max(0, parseFloat($('min_dot_mm').value)),
+      softEdges:  $('soft_edges').checked,
+      newWcm:     parseFloat($('new_w_cm').value) || 0,
+      newHcm:     parseFloat($('new_h_cm').value) || 0,
+      targetDpi:  Math.max(1, parseFloat($('target_dpi').value) || 300),
+    };
+  }
+
+  // ---- Resize en alta calidad (multi-step downscale para reducir aliasing) ----
+  function highQualityResize(src, newW, newH){
+    if (newW === src.width && newH === src.height) return src;
+    let cur = src;
+    while (cur.width / 2 >= newW && cur.height / 2 >= newH){
+      const half = document.createElement('canvas');
+      half.width = Math.max(newW, Math.floor(cur.width / 2));
+      half.height = Math.max(newH, Math.floor(cur.height / 2));
+      const ctx = half.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(cur, 0, 0, half.width, half.height);
+      cur = half;
+    }
+    const out = document.createElement('canvas');
+    out.width = newW; out.height = newH;
+    const ctx = out.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(cur, 0, 0, newW, newH);
+    return out;
+  }
+
+  // ---- Brillo (factor * pixel, como Pillow.ImageEnhance.Brightness) ----
+  function applyBrightnessInPlace(data, factor){
+    if (factor === 1) return;
+    for (let i = 0; i < data.length; i += 4){
+      let r = data[i]   * factor;
+      let g = data[i+1] * factor;
+      let b = data[i+2] * factor;
+      if (r > 255) r = 255; if (g > 255) g = 255; if (b > 255) b = 255;
+      data[i] = r; data[i+1] = g; data[i+2] = b;
+    }
+  }
+
+  // ---- Contraste (alrededor de 128, como Pillow.ImageEnhance.Contrast aproximado) ----
+  function applyContrastInPlace(data, factor){
+    if (factor === 1) return;
+    for (let i = 0; i < data.length; i += 4){
+      let r = (data[i]   - 128) * factor + 128;
+      let g = (data[i+1] - 128) * factor + 128;
+      let b = (data[i+2] - 128) * factor + 128;
+      if (r < 0) r = 0; else if (r > 255) r = 255;
+      if (g < 0) g = 0; else if (g > 255) g = 255;
+      if (b < 0) b = 0; else if (b > 255) b = 255;
+      data[i] = r; data[i+1] = g; data[i+2] = b;
+    }
+  }
+
+  // ---- Nitidez (factor 1 = neutro; sharp = original + (factor-1)*(original - box3x3)) ----
+  function applySharpness(srcData, w, h, factor){
+    if (factor === 1) return srcData;
+    const amount = factor - 1;
+    const out = new Uint8ClampedArray(srcData.length);
+    for (let y = 0; y < h; y++){
+      const ym = y > 0 ? y - 1 : y;
+      const yp = y < h - 1 ? y + 1 : y;
+      for (let x = 0; x < w; x++){
+        const xm = x > 0 ? x - 1 : x;
+        const xp = x < w - 1 ? x + 1 : x;
+        const o  = (y * w + x) * 4;
+        for (let c = 0; c < 3; c++){
+          const avg = (
+            srcData[(ym*w+xm)*4+c] + srcData[(ym*w+x)*4+c] + srcData[(ym*w+xp)*4+c] +
+            srcData[( y*w+xm)*4+c] + srcData[( y*w+x)*4+c] + srcData[( y*w+xp)*4+c] +
+            srcData[(yp*w+xm)*4+c] + srcData[(yp*w+x)*4+c] + srcData[(yp*w+xp)*4+c]
+          ) / 9;
+          let v = srcData[o+c] + amount * (srcData[o+c] - avg);
+          if (v < 0) v = 0; else if (v > 255) v = 255;
+          out[o+c] = v;
+        }
+        out[o+3] = srcData[o+3];
+      }
+    }
+    return out;
+  }
+
+  // ---- Luminancia Rec.709 ----
+  function toLuminance(rgba, w, h){
+    const N = w * h;
+    const gray = new Uint8ClampedArray(N);
+    for (let i = 0; i < N; i++){
+      const o = i*4;
+      gray[i] = 0.2126*rgba[o] + 0.7152*rgba[o+1] + 0.0722*rgba[o+2];
+    }
+    return gray;
+  }
+
+  // ---- Trama AM (puntos por celda rotada) -> alpha ----
+  function makeHalftoneAlpha(gray, w, h, params){
+    const { lpi, angleDeg, blackCut, whiteCut, gamma, minDotMm, softEdges, targetDpi } = params;
+    const N = w * h;
+    const cell  = Math.max(3.0, targetDpi / lpi);
+    const angle = angleDeg * Math.PI / 180;
+    const ca = Math.cos(angle), sa = Math.sin(angle);
+    const denom = Math.max(1, whiteCut - blackCut);
+    const cx = w / 2, cy = h / 2;
+
+    // 1) Mapa tonal normalizado [0..1] post-niveles + gamma
+    const tone = new Float32Array(N);
+    for (let i = 0; i < N; i++){
+      let v = (gray[i] - blackCut) / denom;
+      if (v < 0) v = 0; else if (v > 1) v = 1;
+      tone[i] = Math.pow(v, gamma);
+    }
+
+    // 2) Bounding box de la imagen en espacio rotado para crear malla de celdas
+    let minRX = Infinity, maxRX = -Infinity, minRY = Infinity, maxRY = -Infinity;
+    const corners = [[-cx,-cy],[w-cx,-cy],[-cx,h-cy],[w-cx,h-cy]];
+    for (const [xc, yc] of corners){
+      const xr =  xc*ca + yc*sa;
+      const yr = -xc*sa + yc*ca;
+      if (xr < minRX) minRX = xr; if (xr > maxRX) maxRX = xr;
+      if (yr < minRY) minRY = yr; if (yr > maxRY) maxRY = yr;
+    }
+    const cellsX = Math.ceil((maxRX - minRX) / cell) + 2;
+    const cellsY = Math.ceil((maxRY - minRY) / cell) + 2;
+    const oX = -minRX, oY = -minRY;
+
+    // 3) Promedio tonal por celda
+    const sums   = new Float64Array(cellsX * cellsY);
+    const counts = new Uint32Array(cellsX * cellsY);
+    for (let y = 0; y < h; y++){
+      const yc = y - cy;
+      for (let x = 0; x < w; x++){
+        const xc = x - cx;
+        const xr =  xc*ca + yc*sa + oX;
+        const yr = -xc*sa + yc*ca + oY;
+        const ix = (xr / cell) | 0;
+        const iy = (yr / cell) | 0;
+        const idx = iy*cellsX + ix;
+        sums[idx]   += tone[y*w + x];
+        counts[idx] += 1;
+      }
+    }
+
+    // 4) Per-pixel: alpha basado en promedio de celda y distancia al centro
+    const maxR = cell * 0.72;
+    const minR = (minDotMm / INCH_MM) * targetDpi;
+    const alpha = new Uint8ClampedArray(N);
+
+    for (let y = 0; y < h; y++){
+      const yc = y - cy;
+      for (let x = 0; x < w; x++){
+        const g = gray[y*w + x];
+        if (g >= whiteCut){ alpha[y*w+x] = 255; continue; }
+        if (g <= blackCut){ alpha[y*w+x] = 0;   continue; }
+        const xc = x - cx;
+        const xr =  xc*ca + yc*sa + oX;
+        const yr = -xc*sa + yc*ca + oY;
+        const ix = (xr / cell) | 0;
+        const iy = (yr / cell) | 0;
+        const idx = iy*cellsX + ix;
+        const cnt = counts[idx];
+        if (cnt === 0) continue;
+        const avgTone = sums[idx] / cnt;
+        let r = Math.sqrt(avgTone) * maxR;
+        if (r < minR) continue;
+        const xrc = (ix + 0.5) * cell;
+        const yrc = (iy + 0.5) * cell;
+        const dx = xr - xrc, dy = yr - yrc;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist <= r) alpha[y*w+x] = 255;
+      }
+    }
+
+    // 5) Bordes: blur leve + threshold (duros) o blur algo mayor (suaves)
+    if (softEdges){
+      return boxBlurUint8(alpha, w, h, 1, 0.6);
+    } else {
+      const blurred = boxBlurUint8(alpha, w, h, 1, 0.25);
+      for (let i = 0; i < N; i++) blurred[i] = blurred[i] > 127 ? 255 : 0;
+      return blurred;
+    }
+  }
+
+  // ---- Box blur separable rápido. radius < 1 hace una mezcla con la versión 3x3 ----
+  function boxBlurUint8(src, w, h, passes, fracRadius){
+    // fracRadius 0..1: 0 = sin blur; 1 = blur 3x3 puro
+    // > 1 entendido como múltiples pasadas
+    const radius = Math.max(0, fracRadius);
+    if (radius <= 0.001) return src;
+    const out = box3x3Blend(src, w, h, Math.min(1, radius));
+    if (radius > 1){
+      const extra = Math.floor(radius - 1);
+      let cur = out;
+      for (let i = 0; i < extra; i++){
+        cur = box3x3Blend(cur, w, h, 1);
+      }
+      return cur;
+    }
+    return out;
+  }
+  function box3x3Blend(src, w, h, mix){
+    // mix 0..1: 0 = mantiene src, 1 = full 3x3 average
+    const out = new Uint8ClampedArray(src.length);
+    const inv = 1 - mix;
+    for (let y = 0; y < h; y++){
+      const ym = y > 0 ? y - 1 : y;
+      const yp = y < h - 1 ? y + 1 : y;
+      for (let x = 0; x < w; x++){
+        const xm = x > 0 ? x - 1 : x;
+        const xp = x < w - 1 ? x + 1 : x;
+        const sum = (
+          src[ym*w+xm] + src[ym*w+x] + src[ym*w+xp] +
+          src[ y*w+xm] + src[ y*w+x] + src[ y*w+xp] +
+          src[yp*w+xm] + src[yp*w+x] + src[yp*w+xp]
+        );
+        out[y*w+x] = src[y*w+x] * inv + (sum / 9) * mix;
+      }
+    }
+    return out;
+  }
+
+  // ==================================================================
+  //   Render principal (sustituye a /process del backend)
+  // ==================================================================
+  let lastResult = null;   // { canvas, dpi, params } para la descarga
+
+  async function runProcess(){
+    if (!S.sourceCanvas) return;
+    const t0 = performance.now();
+    const p = readParams();
+
+    // 1) Resize a tamaño físico destino
+    const targetW = Math.max(1, Math.round(p.newWcm / INCH_CM * p.targetDpi));
+    const targetH = Math.max(1, Math.round(p.newHcm / INCH_CM * p.targetDpi));
+    const work = highQualityResize(S.sourceCanvas, targetW, targetH);
+
+    // 2) Obtener pixeles RGBA del canvas redimensionado
+    const wctx = work.getContext('2d');
+    let imgData = wctx.getImageData(0, 0, work.width, work.height);
+    let data = imgData.data;
+
+    // 3) Aplicar brillo, contraste, nitidez
+    applyBrightnessInPlace(data, p.brightness);
+    applyContrastInPlace(data, p.contrast);
+    if (p.sharpness !== 1){
+      data = applySharpness(data, work.width, work.height, p.sharpness);
+    }
+
+    // 4) Calcular luminancia + halftone
+    const gray = toLuminance(data, work.width, work.height);
+    const halftone = makeHalftoneAlpha(gray, work.width, work.height, p);
+
+    // 5) Componer alpha final = min(halftone, alpha_original_de_la_imagen)
+    const N = work.width * work.height;
+    for (let i = 0; i < N; i++){
+      const a0 = data[i*4 + 3];
+      const a1 = halftone[i];
+      data[i*4 + 3] = a0 < a1 ? a0 : a1;
+    }
+
+    // 6) Dibujar en el canvas de resultado
+    const result = $('result');
+    if (result.width !== work.width || result.height !== work.height){
+      result.width = work.width;
+      result.height = work.height;
+    }
+    const rctx = result.getContext('2d');
+    rctx.putImageData(new ImageData(data, work.width, work.height), 0, 0);
+
+    lastResult = { canvas: result, dpi: p.targetDpi };
+
+    // 7) Activar visor / descarga
+    $('viewer').classList.add('has-image');
+    if (S.firstResult){ S.firstResult = false; fitToView(); } else { applyTransform(); updateHud(); }
+    enableDownload();
+
+    setStatus(`Actualizado en ${((performance.now()-t0)|0)} ms.`);
+  }
+
+  // ==================================================================
+  //   Real-time: debounce + cola anti-colisión
+  // ==================================================================
+  const PARAM_IDS = ['brightness','contrast','sharpness','black_cut','white_cut','gamma','lpi','angle','min_dot_mm'];
+  PARAM_IDS.forEach(id => $(id).addEventListener('input', () => scheduleProcess()));
+  $('soft_edges').addEventListener('change', () => scheduleProcess());
+  $('realtime').addEventListener('change', () => { if ($('realtime').checked) scheduleProcess(0); });
+
+  let debounceTimer = null;
+  let inFlight = false;
+  let pending  = false;
+
+  function scheduleProcess(delayMs){
+    if (!S.sourceCanvas) return;
+    // Si tiempo real está apagado y no fue invocación manual, no hacer nada
+    if (!$('realtime').checked && delayMs === undefined) return;
+    const d = (delayMs == null) ? 180 : delayMs;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => runOnce(), d);
+  }
+  async function runOnce(){
+    if (inFlight){ pending = true; return; }
+    inFlight = true;
+    $('vt_busy').classList.add('on');
+    setStatus('Procesando...', 'busy');
+    try {
+      // requestAnimationFrame da tiempo a que la UI se repinte (indicador "procesando")
+      await new Promise(r => requestAnimationFrame(r));
+      await runProcess();
+    } catch(err){
+      console.error(err);
+      setStatus('Error: ' + err.message, 'err');
+    } finally {
+      inFlight = false;
+      $('vt_busy').classList.remove('on');
+      if (pending){ pending = false; runOnce(); }
+    }
+  }
+
+  $('btn-process').addEventListener('click', () => {
+    clearTimeout(debounceTimer);
+    runOnce();
+  });
+
+  // ==================================================================
+  //   DESCARGA con DPI embebido en PNG (vía chunk pHYs)
+  // ==================================================================
+  $('download').addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (!lastResult) return;
+    setStatus('Generando PNG...', 'busy');
+    try {
+      const blob = await new Promise((res) =>
+        lastResult.canvas.toBlob((b) => res(b), 'image/png')
+      );
+      const buf = await blob.arrayBuffer();
+      const withDpi = injectDpiIntoPng(new Uint8Array(buf), lastResult.dpi);
+      const finalBlob = new Blob([withDpi], { type: 'image/png' });
+      const url = URL.createObjectURL(finalBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${S.fileName}_semitono.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      setStatus(`PNG generado (${(finalBlob.size/1024).toFixed(0)} KB) con DPI ${Math.round(lastResult.dpi)}.`);
+    } catch(err){
+      console.error(err);
+      setStatus('Error generando PNG: ' + err.message, 'err');
+    }
+  });
+
+  function enableDownload(){
+    $('download').style.display = 'block';
+  }
+
+  // ---- Inyecta un chunk pHYs después del IHDR ----
+  function injectDpiIntoPng(u8, dpi){
+    const ppm = Math.round(dpi / 0.0254); // pixels per meter
+    // Construir chunk completo: length(4) + type(4) + data(9) + crc(4) = 21 bytes
+    const chunk = new Uint8Array(21);
+    // length = 9 (solo los datos, sin contar el type)
+    chunk[0] = 0; chunk[1] = 0; chunk[2] = 0; chunk[3] = 9;
+    // type 'pHYs'
+    chunk[4] = 0x70; chunk[5] = 0x48; chunk[6] = 0x59; chunk[7] = 0x73;
+    // ppmX (4 BE)
+    chunk[8]  = (ppm >>> 24) & 0xff;
+    chunk[9]  = (ppm >>> 16) & 0xff;
+    chunk[10] = (ppm >>> 8)  & 0xff;
+    chunk[11] =  ppm         & 0xff;
+    // ppmY (4 BE)
+    chunk[12] = (ppm >>> 24) & 0xff;
+    chunk[13] = (ppm >>> 16) & 0xff;
+    chunk[14] = (ppm >>> 8)  & 0xff;
+    chunk[15] =  ppm         & 0xff;
+    // unit = meter
+    chunk[16] = 1;
+    // CRC sobre type+data (bytes 4..16, 13 bytes)
+    const crc = crc32(chunk.subarray(4, 17));
+    chunk[17] = (crc >>> 24) & 0xff;
+    chunk[18] = (crc >>> 16) & 0xff;
+    chunk[19] = (crc >>> 8)  & 0xff;
+    chunk[20] =  crc         & 0xff;
+
+    // Insertar justo después del chunk IHDR. PNG signature: 8 bytes
+    // IHDR: length(4) + 'IHDR'(4) + 13 data + 4 crc = 25 bytes
+    // Total antes del nuevo chunk = 8 + 25 = 33 bytes
+    const insertPos = 33;
+    const out = new Uint8Array(u8.length + chunk.length);
+    out.set(u8.subarray(0, insertPos), 0);
+    out.set(chunk, insertPos);
+    out.set(u8.subarray(insertPos), insertPos + chunk.length);
+    return out;
+  }
+  let _crcTable = null;
+  function crc32(data){
+    if (!_crcTable){
+      const t = new Uint32Array(256);
+      for (let i = 0; i < 256; i++){
+        let c = i;
+        for (let k = 0; k < 8; k++){
+          c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        t[i] = c;
+      }
+      _crcTable = t;
+    }
+    let crc = 0xffffffff;
+    for (let i = 0; i < data.length; i++){
+      crc = _crcTable[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  // ==================================================================
+  //   VISOR estilo Photoshop
+  // ==================================================================
+  const viewer = $('viewer');
+  const stage  = $('stage');
+  const resultCanvas = $('result');
+  const view = { scale: 1, x: 0, y: 0 };
+  const MIN_SCALE = 0.02, MAX_SCALE = 64;
+
+  function applyTransform(){
+    stage.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.scale})`;
+    $('vt_zoom_lvl').textContent = (view.scale * 100).toFixed(0) + '%';
+    updateHud();
+  }
+  function fitToView(padding=0.94){
+    if (!resultCanvas.width || !resultCanvas.height) return;
+    const iw = resultCanvas.width, ih = resultCanvas.height;
+    const vw = viewer.clientWidth, vh = viewer.clientHeight;
+    const k = Math.min(vw/iw, vh/ih) * padding;
+    view.scale = k;
+    view.x = (vw - iw*k) / 2;
+    view.y = (vh - ih*k) / 2;
+    applyTransform();
+  }
+  function setZoomAt(newScale, cx, cy){
+    newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+    const k = newScale / view.scale;
+    view.x = cx - (cx - view.x) * k;
+    view.y = cy - (cy - view.y) * k;
+    view.scale = newScale;
+    applyTransform();
+  }
+  function centerOfViewer(){ return { x: viewer.clientWidth/2, y: viewer.clientHeight/2 }; }
+  function zoomBy(factor){ const c = centerOfViewer(); setZoomAt(view.scale*factor, c.x, c.y); }
+  function setZoom100(){ const c = centerOfViewer(); setZoomAt(1, c.x, c.y); }
+  function updateHud(){
+    if (!resultCanvas.width) return;
+    $('vt_hud').textContent = `${resultCanvas.width}×${resultCanvas.height}px · ${(view.scale*100).toFixed(0)}%`;
+  }
+
+  viewer.addEventListener('wheel', (e) => {
+    if (!viewer.classList.contains('has-image')) return;
+    e.preventDefault();
+    const rect = viewer.getBoundingClientRect();
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const intensity = Math.min(0.25, Math.abs(e.deltaY) / 500);
+    const factor = e.deltaY < 0 ? (1 + intensity) : 1 / (1 + intensity);
+    setZoomAt(view.scale * factor, cx, cy);
+  }, { passive: false });
+
+  let dragging = false, dragStart = null;
+  viewer.addEventListener('mousedown', (e) => {
+    if (!viewer.classList.contains('has-image')) return;
+    if (e.button !== 0 && e.button !== 1) return;
+    e.preventDefault();
+    dragging = true;
+    dragStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+    viewer.classList.add('grabbing');
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    view.x = e.clientX - dragStart.x;
+    view.y = e.clientY - dragStart.y;
+    applyTransform();
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    viewer.classList.remove('grabbing');
+  });
+  viewer.addEventListener('dblclick', () => fitToView());
+
+  $('vt_zoom_in').addEventListener('click',  () => zoomBy(1.25));
+  $('vt_zoom_out').addEventListener('click', () => zoomBy(1/1.25));
+  $('vt_fit').addEventListener('click',      () => fitToView());
+  $('vt_100').addEventListener('click',      () => setZoom100());
+  $('vt_checker').addEventListener('click', () => {
+    viewer.classList.toggle('show-checker');
+    $('vt_checker').classList.toggle('active', viewer.classList.contains('show-checker'));
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!viewer.classList.contains('has-image')) return;
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (e.ctrlKey || e.metaKey){
+      if (e.key === '+' || e.key === '='){ e.preventDefault(); zoomBy(1.25); }
+      else if (e.key === '-'){ e.preventDefault(); zoomBy(1/1.25); }
+      else if (e.key === '0'){ e.preventDefault(); fitToView(); }
+      else if (e.key === '1'){ e.preventDefault(); setZoom100(); }
+    } else {
+      if (e.key === '0') fitToView();
+      else if (e.key === '1') setZoom100();
+      else if (e.key === '+' || e.key === '=') zoomBy(1.25);
+      else if (e.key === '-') zoomBy(1/1.25);
+      else if (e.key === 'c' || e.key === 'C') $('vt_checker').click();
+    }
+  });
+
+  window.addEventListener('resize', () => { if (viewer.classList.contains('has-image')) fitToView(); });
+
+  // ==================================================================
+  //   Utilidades varias
+  // ==================================================================
+  function setStatus(msg, cls=''){
+    const el = $('status');
+    el.className = 'status' + (cls ? ' '+cls : '');
+    el.textContent = msg;
+  }
+
+})();
+</script>
+</body>
+</html>
