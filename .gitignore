@@ -1,26 +1,14 @@
-# Python
+# Python (backup del backend Flask original)
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
 venv/
 env/
 .venv/
 .env/
 
-# Distribución / build
-build/
-dist/
-*.egg-info/
-*.egg
-
-# Pruebas / cobertura
-.coverage
-.coverage.*
-.pytest_cache/
-.tox/
-htmlcov/
+# Backup local del backend Python anterior
+*.bak
 
 # IDE / editores
 .vscode/
@@ -37,14 +25,11 @@ htmlcov/
 Thumbs.db
 desktop.ini
 
-# Backup local del backend Python anterior
-*.bak
+# Logs
+*.log
 
-# Archivos de prueba locales (descomenta si no quieres subir imagenes)
+# Imágenes de prueba locales (descomenta si no quieres subirlas)
 # *.png
 # *.jpg
 # *.jpeg
 # *.webp
-
-# Logs
-*.log
