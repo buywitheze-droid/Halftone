@@ -469,6 +469,180 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 .disabled-card{opacity:.4;pointer-events:none}
 .section-disabled-msg{font-size:11px;color:var(--muted);font-style:italic;margin-top:6px}
 
+/* ==================================================================
+   DROPZONE MODERNA (estado VACÍO)
+   ==================================================================
+   Reemplaza el <input type="file"> nativo por una zona grande tipo
+   Canva/Figma/Photopea. El input real queda hidden y se activa
+   programáticamente con un clic sobre el contenedor.
+   Estados (clase en .dropzone):
+     · (sin clase)  → empty, espera interacción
+     · .dragover    → glow fuerte cuando se arrastra encima
+     · .loading     → spinner overlay mientras se decodifica/analiza
+     · .error       → overlay de error con mensaje breve
+*/
+.dropzone{
+  position:relative;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;gap:10px;
+  padding:30px 18px 26px;border-radius:18px;
+  background:linear-gradient(135deg, rgba(34,224,211,.04), rgba(126,87,255,.04));
+  border:2px dashed var(--border);
+  cursor:pointer;user-select:none;overflow:hidden;
+  transition:border-color .2s ease, background-color .2s ease, transform .15s ease;
+}
+.dropzone:hover{
+  border-color:rgba(34,224,211,.55);
+  background:linear-gradient(135deg, rgba(34,224,211,.08), rgba(126,87,255,.07));
+  transform:translateY(-1px);
+}
+.dropzone:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.dropzone.dragover{
+  border-color:var(--cyan);border-style:solid;
+  background:linear-gradient(135deg, rgba(34,224,211,.18), rgba(126,87,255,.14));
+  box-shadow:0 0 0 4px rgba(34,224,211,.18), 0 10px 30px rgba(34,224,211,.25);
+  transform:scale(1.01);
+}
+.dropzone.loading{pointer-events:none;border-color:rgba(34,224,211,.6)}
+.dropzone.error{border-color:rgba(255,82,82,.65);background:linear-gradient(135deg, rgba(255,82,82,.06), rgba(255,82,82,.02))}
+
+/* "Glow" suave detrás del icono: animación amable, sin distraer. */
+.dz-glow{
+  position:absolute;top:-40%;left:-20%;width:140%;height:180%;
+  background:radial-gradient(closest-side, rgba(34,224,211,.18), transparent 70%);
+  filter:blur(40px);opacity:.55;pointer-events:none;
+  animation:dzGlow 6s ease-in-out infinite alternate;
+}
+@keyframes dzGlow{
+  from{transform:translate(-4%, -4%) scale(1);opacity:.45}
+  to  {transform:translate(4%, 6%) scale(1.1);opacity:.7}
+}
+.dropzone.dragover .dz-glow{opacity:.95}
+
+.dz-content{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:2}
+
+.dz-icon-wrap{
+  width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg, rgba(34,224,211,.18), rgba(126,87,255,.14));
+  border:1px solid rgba(34,224,211,.35);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--cyan);margin-bottom:4px;
+  box-shadow:0 6px 18px rgba(34,224,211,.18), inset 0 1px 0 rgba(255,255,255,.06);
+  transition:transform .25s cubic-bezier(.4,1.8,.6,1);
+}
+.dropzone:hover .dz-icon-wrap{transform:translateY(-2px) scale(1.04)}
+.dropzone.dragover .dz-icon-wrap{transform:translateY(-3px) scale(1.1)}
+
+.dz-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:.2px}
+.dz-sub{font-size:12px;color:var(--muted)}
+.dz-link{
+  color:var(--cyan);font-weight:600;text-decoration:underline;
+  text-underline-offset:2px;text-decoration-thickness:1px;
+}
+
+.dz-formats{
+  display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;justify-content:center;
+}
+.dz-formats span{
+  font-size:10px;font-weight:700;color:var(--text);
+  padding:3px 8px;background:rgba(255,255,255,.05);
+  border:1px solid var(--border);border-radius:999px;
+  letter-spacing:.6px;
+}
+.dz-hint{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;color:var(--muted);
+  margin-top:6px;padding:5px 10px;
+  background:rgba(34,224,211,.06);border:1px solid rgba(34,224,211,.16);
+  border-radius:8px;
+}
+.dz-hint svg{flex:0 0 12px;color:var(--cyan)}
+
+/* Overlays de estado (loading / error) */
+.dz-overlay{
+  position:absolute;inset:0;display:none;
+  align-items:center;justify-content:center;gap:10px;flex-direction:column;
+  background:rgba(14,14,18,.85);backdrop-filter:blur(4px);
+  border-radius:16px;z-index:3;
+  font-size:12px;font-weight:600;letter-spacing:.3px;
+}
+.dropzone.loading .dz-loading{display:flex;color:var(--cyan)}
+.dropzone.error .dz-error{display:flex;color:#ff8a8a}
+
+.spinner{
+  width:32px;height:32px;border-radius:50%;
+  border:3px solid rgba(34,224,211,.22);
+  border-top-color:var(--cyan);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ==================================================================
+   FILE CARD (estado CARGADO)
+   ==================================================================
+   Cuando hay imagen, la dropzone se oculta y aparece esta tarjeta
+   compacta con thumbnail + nombre + metadata + acciones rápidas. */
+.file-card{
+  display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:center;
+  padding:10px;border-radius:14px;
+  background:linear-gradient(135deg, rgba(34,224,211,.04), rgba(126,87,255,.03));
+  border:1px solid var(--border);
+  animation:fcSlideIn .35s cubic-bezier(.2,1,.3,1);
+}
+@keyframes fcSlideIn{
+  from{opacity:0;transform:translateY(6px) scale(.97)}
+  to{opacity:1;transform:none}
+}
+.fc-thumb{
+  position:relative;width:64px;height:64px;border-radius:10px;
+  overflow:hidden;border:1px solid var(--border);background:#222;
+}
+.fc-thumb-check{
+  position:absolute;inset:0;
+  background:
+    conic-gradient(#3a3a45 25%, #1f1f2c 0 50%, #3a3a45 0 75%, #1f1f2c 0);
+  background-size:10px 10px;
+}
+.fc-thumb img{
+  position:relative;width:100%;height:100%;object-fit:contain;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+}
+.fc-alpha-badge{
+  position:absolute;top:4px;right:4px;
+  width:18px;height:18px;border-radius:5px;
+  background:rgba(34,224,211,.85);color:#001513;
+  display:none;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;font-family:ui-monospace,SFMono-Regular,monospace;
+  box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+.fc-alpha-badge.on{display:flex}
+.fc-info{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fc-name{
+  font-size:13px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.fc-meta{
+  display:flex;flex-wrap:wrap;gap:4px;
+}
+.fc-pill{
+  font-size:10px;font-weight:600;color:var(--muted);
+  padding:2px 7px;background:rgba(255,255,255,.05);
+  border:1px solid var(--border);border-radius:999px;
+  letter-spacing:.2px;white-space:nowrap;
+}
+.fc-pill.ok{color:var(--ok);border-color:rgba(88,227,137,.35);background:rgba(88,227,137,.08)}
+.fc-actions{
+  grid-column:1 / -1;display:flex;gap:6px;margin-top:2px;
+}
+.fc-actions .btn{flex:1;justify-content:center;font-size:11px;padding:7px 8px}
+.fc-actions .btn.icon-only{flex:0 0 34px;padding:0;width:34px}
+.btn.icon-only{
+  display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  color:var(--muted);border-radius:8px;cursor:pointer;
+  transition:color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.btn.icon-only:hover{color:#ff7878;border-color:rgba(255,120,120,.4);background:rgba(255,120,120,.06)}
+
 /* Tabs sobre la vista previa */
 .view-tabs{
   display:flex;gap:4px;flex-shrink:0;
@@ -577,16 +751,113 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     <!-- 1. SUBIR + PREPARAR -->
     <div class="card collapsible" id="card-prep">
       <h2>1 · Subir y preparar</h2>
-      <input type="file" id="file" accept="image/png,image/jpeg,image/webp">
-      <div class="section-disabled-msg">También puedes arrastrar una imagen a cualquier parte de la ventana.</div>
+
+      <!-- Estado VACÍO: dropzone moderna.
+           El <input type="file"> real va hidden y se dispara
+           programáticamente con clic/teclado sobre .dropzone.
+           El drag&drop a nivel ventana sigue funcionando como
+           atajo global (ver listeners en JS). -->
+      <div class="dropzone" id="dropzone" tabindex="0" role="button"
+           aria-label="Subir o arrastrar imagen">
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <div class="dz-glow" aria-hidden="true"></div>
+        <div class="dz-content">
+          <div class="dz-icon-wrap" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="dz-title">Arrastra tu diseño aquí</div>
+          <div class="dz-sub">o <span class="dz-link">haz clic para subir</span></div>
+          <div class="dz-formats">
+            <span>PNG</span><span>JPG</span><span>WEBP</span>
+          </div>
+          <div class="dz-hint">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+              <circle cx="12" cy="8" r=".5" fill="currentColor"/>
+            </svg>
+            Ideal: PNG a 300 DPI con transparencia para DTF
+          </div>
+        </div>
+
+        <!-- Overlays de estado: solo visibles cuando .dropzone tiene
+             la clase .loading o .error respectivamente. -->
+        <div class="dz-overlay dz-loading" aria-live="polite">
+          <div class="spinner"></div>
+          <span>Analizando imagen…</span>
+        </div>
+        <div class="dz-overlay dz-error" role="alert">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+            <circle cx="12" cy="16" r=".6" fill="currentColor"/>
+          </svg>
+          <span id="dz_error_msg">No se pudo cargar la imagen</span>
+        </div>
+      </div>
+
+      <!-- Estado CARGADO: card compacta con thumbnail + metadatos.
+           Se muestra al completar handleNewFile() y se oculta al pulsar
+           el botón "eliminar" (vuelve a la dropzone). -->
+      <div class="file-card" id="fileCard" style="display:none">
+        <div class="fc-thumb">
+          <div class="fc-thumb-check" aria-hidden="true"></div>
+          <img id="fcThumbImg" alt="">
+          <div class="fc-alpha-badge" id="fcAlphaBadge" title="Tiene transparencia">α</div>
+        </div>
+        <div class="fc-info">
+          <div class="fc-name" id="fcName">archivo.png</div>
+          <div class="fc-meta">
+            <span class="fc-pill" id="fcDims">—</span>
+            <span class="fc-pill" id="fcCm">—</span>
+            <span class="fc-pill" id="fcDpi">—</span>
+            <span class="fc-pill" id="fcSize">—</span>
+          </div>
+        </div>
+        <div class="fc-actions">
+          <button class="btn outline compact" id="btn-change" type="button" title="Subir otra imagen">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Cambiar
+          </button>
+          <button class="btn outline compact" id="btn-reprocess" type="button" title="Volver a procesar con los parámetros actuales">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Reprocesar
+          </button>
+          <button class="btn icon-only" id="btn-remove" type="button" title="Quitar imagen">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
 
       <div id="prep-block" style="display:none">
-        <h3>Imagen original</h3>
-        <div class="info-box">
-          <div class="kv"><span>Tamaño</span><b id="i_px">—</b></div>
-          <div class="kv"><span>DPI embebido</span><b id="i_dpi">—</b></div>
-          <div class="kv"><span>Tamaño físico</span><b id="i_cm">—</b></div>
-        </div>
+        <!-- Los datos de la imagen original (px, DPI, cm) ahora se muestran
+             en la .file-card de arriba. Aquí dejamos solo los CONTROLES de
+             tamaño destino y DPI de trabajo. -->
 
         <h3>Tamaño destino</h3>
         <div class="row">
@@ -901,6 +1172,9 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     updatingRatio: false,
     firstResult: true,
     fileName: 'arte',
+    fileFullName: '',            // nombre completo con extensión (para la file-card)
+    fileSize: 0,                 // bytes (para mostrar tamaño en la file-card)
+    fileHasAlpha: false,         // si el PNG fuente tiene transparencia real
     // UX
     uxMode: 'simple',            // 'simple' | 'advanced' — qué controles ve el usuario
     garmentPreset: 'negra',      // preset de tipo de prenda activo (ver GARMENT_PRESETS)
@@ -1163,21 +1437,182 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   }
 
   // ==================================================================
-  //   Carga de archivo (input + drag/drop)
+  //   Carga de archivo (dropzone + file-card)
   // ==================================================================
+  //
+  // Flujo de upload (alto nivel):
+  //   1. El usuario interactúa con la .dropzone (clic/teclado/drop) o el
+  //      drag&drop global de la ventana.
+  //   2. handleNewFile() valida tipo MIME y arranca loadAndInspect().
+  //   3. Mientras se decodifica, la dropzone muestra .loading (spinner).
+  //   4. Si todo va bien: ocultamos la dropzone, mostramos la file-card
+  //      con thumbnail + metadatos y disparamos el primer scheduleProcess().
+  //   5. Si falla la decodificación: estado .error con mensaje breve.
+  //   6. El botón "Eliminar" en la card vuelve al estado vacío (dropzone).
+  //
+  // Estados visuales de la dropzone:
+  //   · empty      → sin clase
+  //   · dragover   → .dragover (se aplica en listeners de drag a nivel ventana
+  //                  o sobre la propia dropzone)
+  //   · loading    → .loading (spinner overlay)
+  //   · error      → .error (overlay rojo con mensaje)
+  //   · success    → la dropzone se oculta y emerge .file-card
+
+  // El input nativo queda hidden; lo disparamos programáticamente.
   $('file').addEventListener('change', (e) => {
     const f = e.target.files[0];
     if (f) handleNewFile(f);
+    e.target.value = '';   // permite volver a elegir el MISMO archivo
+  });
+
+  // Clic / teclado sobre la dropzone abre el selector de archivos.
+  $('dropzone').addEventListener('click', () => {
+    if ($('dropzone').classList.contains('loading')) return;
+    $('file').click();
+  });
+  $('dropzone').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      $('file').click();
+    }
+  });
+
+  // Drop / dragover propios de la dropzone (además del overlay global).
+  // Esto permite que el "glow" del componente reaccione al estar el
+  // archivo justo encima, no solo en cualquier parte de la ventana.
+  ['dragenter','dragover'].forEach(ev =>
+    $('dropzone').addEventListener(ev, (e) => {
+      if (!hasImageType(e.dataTransfer)) return;
+      e.preventDefault();
+      $('dropzone').classList.add('dragover');
+    })
+  );
+  ['dragleave','dragend','drop'].forEach(ev =>
+    $('dropzone').addEventListener(ev, () => $('dropzone').classList.remove('dragover'))
+  );
+
+  // Botones de la file-card.
+  $('btn-change').addEventListener('click', () => $('file').click());
+  $('btn-reprocess').addEventListener('click', () => {
+    if (!S.sourceCanvas){ setStatus('Primero sube una imagen.', 'err'); return; }
+    setStatus('Reprocesando...', 'busy');
+    scheduleProcess(0);
+  });
+  $('btn-remove').addEventListener('click', () => {
+    if (!S.sourceCanvas) return;
+    resetUploadState();
   });
 
   function handleNewFile(file){
     if (!/^image\//.test(file.type)){
-      setStatus('Solo imágenes (PNG/JPG/WEBP).', 'err');
+      setDropzoneError('Solo se admiten imágenes PNG, JPG o WEBP.');
+      setStatus('Formato no admitido.', 'err');
       return;
     }
-    S.fileName = (file.name || 'arte').replace(/\.[^.]+$/, '') || 'arte';
+    S.fileFullName = file.name || 'arte';
+    S.fileSize = file.size || 0;
+    S.fileName = S.fileFullName.replace(/\.[^.]+$/, '') || 'arte';
     S.firstResult = true;
+
+    // Si veníamos del estado "file-card" (cambio de imagen), volvemos a
+    // mostrar la dropzone para que el spinner sea visible. La file-card
+    // se rellenará y mostrará de nuevo al terminar loadAndInspect().
+    $('fileCard').style.display = 'none';
+    $('dropzone').style.display = '';
+    $('dropzone').classList.remove('error','dragover');
+    $('dropzone').classList.add('loading');
     loadAndInspect(file);
+  }
+
+  // Helper: pinta el overlay de error en la dropzone con un mensaje.
+  function setDropzoneError(msg){
+    $('dropzone').classList.remove('loading');
+    $('dropzone').classList.add('error');
+    $('dz_error_msg').textContent = msg || 'No se pudo cargar la imagen';
+  }
+
+  // Vuelve al estado vacío: limpia el estado relacionado a la imagen y
+  // restablece la dropzone como sección activa.
+  function resetUploadState(){
+    S.sourceCanvas = null;
+    S.lastResult = null;
+    S.fileFullName = '';
+    S.fileSize = 0;
+    S.fileHasAlpha = false;
+    $('fileCard').style.display = 'none';
+    $('prep-block').style.display = 'none';
+    $('dropzone').style.display = '';
+    $('dropzone').classList.remove('loading','error','dragover');
+    $('card-tonal').classList.add('disabled-card');
+    $('card-garment').classList.add('disabled-card');
+    $('card-screen').classList.add('disabled-card');
+    $('btn-process').disabled = true;
+    // Limpiar el viewer y volver al estado "vacío" del preview.
+    const viewer = $('viewer');
+    if (viewer) viewer.classList.remove('has-image','grabbing','picking','view-original','view-mask','view-zones');
+    ['before','mask','zones','result','out'].forEach((id) => {
+      const c = $(id); if (c){ c.width = c.height = 0; }
+    });
+    setStatus('Listo para una nueva imagen.');
+  }
+
+  // Detecta si el canvas fuente tiene algún pixel con alfa < 255.
+  function canvasHasAlpha(c){
+    try{
+      const w = c.width|0, h = c.height|0; if (!w || !h) return false;
+      const step = Math.max(1, Math.floor(Math.max(w,h) / 256)); // muestreo barato
+      const ctx = c.getContext('2d');
+      const data = ctx.getImageData(0, 0, w, h).data;
+      for (let y = 0; y < h; y += step){
+        for (let x = 0; x < w; x += step){
+          if (data[(y*w + x)*4 + 3] < 255) return true;
+        }
+      }
+      return false;
+    } catch(_){ return false; }
+  }
+
+  // Genera un thumbnail (data URL) ~96px del lado mayor.
+  function makeThumbDataUrl(c){
+    const TH = 96;
+    const w = c.width, h = c.height;
+    const r = Math.min(TH / w, TH / h);
+    const tw = Math.max(1, Math.round(w * r));
+    const th = Math.max(1, Math.round(h * r));
+    const t = document.createElement('canvas');
+    t.width = tw; t.height = th;
+    const tctx = t.getContext('2d');
+    tctx.imageSmoothingEnabled = true;
+    tctx.imageSmoothingQuality = 'high';
+    tctx.drawImage(c, 0, 0, tw, th);
+    return t.toDataURL('image/png');
+  }
+
+  // Formatea bytes en KB/MB con 1 decimal.
+  function formatBytes(n){
+    if (!n) return '—';
+    if (n < 1024) return n + ' B';
+    if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/(1024*1024)).toFixed(2) + ' MB';
+  }
+
+  // Rellena la card compacta con los datos del archivo cargado.
+  function populateFileCard(c){
+    $('fcName').textContent = S.fileFullName || 'arte';
+    $('fcDims').textContent = `${c.width} × ${c.height} px`;
+    // Tamaño en cm @ 300 DPI (referencia universal para DTF).
+    const wcm300 = (c.width  / 300) * INCH_CM;
+    const hcm300 = (c.height / 300) * INCH_CM;
+    $('fcCm').textContent = `${wcm300.toFixed(1)} × ${hcm300.toFixed(1)} cm @ 300dpi`;
+    $('fcDpi').textContent = S.sourceDpiKnown
+      ? `${Math.round(S.sourceDpi)} dpi`
+      : `${Math.round(S.sourceDpi)} dpi (asumido)`;
+    $('fcSize').textContent = formatBytes(S.fileSize);
+
+    // Thumbnail + badge de transparencia
+    $('fcThumbImg').src = makeThumbDataUrl(c);
+    S.fileHasAlpha = canvasHasAlpha(c);
+    $('fcAlphaBadge').classList.toggle('on', S.fileHasAlpha);
   }
 
   async function loadAndInspect(file){
@@ -1197,13 +1632,10 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       S.sourceDpi = dpiInfo ? dpiInfo.dpi : 72;
       S.sourceDpiKnown = !!dpiInfo;
 
+      // Tamaño físico de la imagen original (cm) en su DPI embebido — se
+      // usa solo para sugerir un ancho destino razonable. Los valores
+      // visibles (px / DPI / cm) ahora viven en la .file-card.
       const wcm = (c.width  / S.sourceDpi) * INCH_CM;
-      const hcm = (c.height / S.sourceDpi) * INCH_CM;
-      $('i_px').textContent  = `${c.width} × ${c.height} px`;
-      $('i_dpi').textContent = S.sourceDpiKnown
-        ? `${Math.round(S.sourceDpi*10)/10}`
-        : `${Math.round(S.sourceDpi*10)/10} (asumido)`;
-      $('i_cm').textContent  = `${wcm.toFixed(2)} × ${hcm.toFixed(2)} cm`;
 
       let suggW;
       if (wcm >= 50) suggW = 32;
@@ -1211,6 +1643,12 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       else suggW = 32;
       $('new_w_cm').value = suggW;
       $('new_h_cm').value = (suggW * S.ratio).toFixed(2);
+
+      // Pasamos del estado "dropzone" al estado "file-card".
+      $('dropzone').classList.remove('loading','error');
+      $('dropzone').style.display = 'none';
+      populateFileCard(c);
+      $('fileCard').style.display = '';
 
       $('prep-block').style.display = '';
       $('card-tonal').classList.remove('disabled-card');
@@ -1222,7 +1660,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       scheduleProcess(0);
     } catch (err){
       console.error(err);
-      setStatus('Error: ' + err.message, 'err');
+      setDropzoneError(err && err.message ? err.message : 'No se pudo cargar la imagen');
+      setStatus('Error: ' + (err && err.message ? err.message : err), 'err');
     }
   }
 
