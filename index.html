@@ -103,18 +103,263 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 }
 
 .disabled-block{opacity:.4;pointer-events:none}
+.hidden{display:none !important}
+
+/* ==================================================================
+   UX LEVEL (simple ↔ avanzado)
+   ==================================================================
+   El usuario DTF piensa "playera negra, semitono grande, conservar
+   letras", no "OKLab Δa=0.18 gamma 0.83". El modo SIMPLE oculta los
+   tecnicismos y el AVANZADO los devuelve. Marcamos cada control con
+   .simple-only / .advanced-only y dejamos que el body[data-ux] decida.
+*/
+body[data-ux="simple"]   .advanced-only{display:none !important}
+body[data-ux="advanced"] .simple-only{display:none !important}
+
+.ux-mode-switch{
+  display:grid;grid-template-columns:1fr 1fr;gap:4px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:12px;padding:4px;margin-bottom:14px;
+  position:sticky;top:0;z-index:5;
+  box-shadow:0 4px 12px rgba(0,0,0,.25);
+}
+.ux-mode-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:9px 8px;border:0;border-radius:8px;cursor:pointer;
+  background:transparent;color:var(--muted);
+  font-size:12px;font-weight:600;letter-spacing:.3px;
+  transition:background-color .18s ease, color .18s ease;
+}
+.ux-mode-btn:hover{background:rgba(255,255,255,.04);color:var(--text)}
+.ux-mode-btn.active{
+  background:linear-gradient(135deg,rgba(34,224,211,.18),rgba(34,224,211,.08));
+  color:var(--text);box-shadow:inset 0 0 0 1px var(--cyan);
+}
+.ux-mode-btn.active svg{color:var(--cyan)}
+
+/* Sección dentro de una card */
+.section-title{
+  margin:14px 0 8px;font-size:11px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.7px;font-weight:700;
+  display:flex;align-items:center;gap:6px;
+}
+.section-title::before{
+  content:"";flex:0 0 16px;height:1px;background:var(--border);
+}
+.section-title::after{
+  content:"";flex:1;height:1px;background:var(--border);
+}
+
+/* ==================================================================
+   PRESETS DE TIPO DE PRENDA (Negra, Blanca, Roja, …)
+   ==================================================================
+   Cada botón configura DE UNA todo lo necesario: modo de separación,
+   color de prenda, tolerancia, transición, gamma, mín-dot y preview-bg.
+   Es la entrada principal del modo Simple. */
+.garment-type-grid{
+  display:grid;grid-template-columns:repeat(4, 1fr);gap:6px;
+  margin-bottom:10px;
+}
+.g-type{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:8px 4px 7px;background:rgba(255,255,255,.03);
+  border:1px solid var(--border);border-radius:10px;color:var(--text);
+  font-size:10.5px;font-weight:600;letter-spacing:.2px;cursor:pointer;
+  transition:transform .12s ease, border-color .15s ease, background-color .15s ease;
+}
+.g-type:hover{transform:translateY(-1px);border-color:rgba(34,224,211,.5);background:rgba(255,255,255,.06)}
+.g-type.active{
+  border-color:var(--cyan);background:rgba(34,224,211,.12);
+  box-shadow:0 0 0 1px rgba(34,224,211,.5), 0 0 10px rgba(34,224,211,.25);
+}
+.g-chip{
+  width:28px;height:28px;border-radius:8px;
+  border:1px solid rgba(255,255,255,.25);
+  display:block;background:#888;
+}
+.g-type[data-preset="blanca"] .g-chip{border-color:rgba(255,255,255,.5)}
+.g-chip-custom{
+  background:conic-gradient(from 0deg,#ff4f5e,#ffb44a,#ffe55a,#5ae28a,#4fc6ff,#a87bff,#ff4f5e);
+}
+
+/* Fila de acciones rápidas (auto-detect + eyedropper) */
+.garment-actions{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 10px;
+}
+.garment-actions .btn{justify-content:center;width:100%}
+
+/* Swatch preview del último color tomado por el gotero */
+.picked-preview{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:11px;color:var(--muted);
+  padding:6px 10px;border:1px dashed var(--border);border-radius:8px;
+  margin-top:6px;
+}
+.picked-preview .pp-chip{
+  width:18px;height:18px;border-radius:5px;
+  border:1px solid rgba(255,255,255,.25);background:#888;
+}
+
+/* ==================================================================
+   ZONAS — Heatmap visual (rojo / naranja / verde)
+   ==================================================================
+   Visualización UX, NO modifica el alpha exportado:
+     · ROJO    → pixel que se elimina (alpha 0)
+     · NARANJA → pixel en zona de transición (donde caen los puntos)
+     · VERDE   → pixel sólido (100% tinta)
+   El canvas #zones se pinta solo cuando la tab "Zonas" está activa. */
+.viewer.view-mask    #result,
+.viewer.view-mask    #before,
+.viewer.view-mask    #zones{display:none !important}
+.viewer.view-mask    #mask{display:block !important}
+
+.viewer.view-zones   #result,
+.viewer.view-zones   #before,
+.viewer.view-zones   #mask{display:none !important}
+.viewer.view-zones   #zones{display:block !important}
+
+#mask, #zones{position:absolute;top:0;left:0;display:none;}
+#mask{image-rendering:pixelated}
+
+.zones-legend{
+  display:flex;gap:14px;justify-content:center;flex-wrap:wrap;
+  padding:8px 12px;background:rgba(0,0,0,.55);border-radius:8px;
+  font-size:11px;color:#dbe7e4;font-weight:600;
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  z-index:6;pointer-events:none;display:none;
+  border:1px solid rgba(255,255,255,.08);
+  backdrop-filter:blur(6px);
+}
+.viewer.view-zones .zones-legend{display:flex}
+.zones-legend .swatch{
+  width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:6px;
+  vertical-align:middle;border:1px solid rgba(255,255,255,.2);
+}
+.zones-legend .sw-red   { background:#ff4646 }
+.zones-legend .sw-orange{ background:#ffa032 }
+.zones-legend .sw-green { background:#46c878 }
+
+/* ==================================================================
+   MODE TOGGLE (luminancia vs color)
+   ==================================================================
+   Toggle de modo de separación. Como "tabs" segmentadas dentro de la
+   card 3. El modo activo determina qué bloque (.mode-block) se ve.
+*/
+.mode-toggle{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;
+  padding:4px;border-radius:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+  margin-bottom:14px;
+}
+.mode-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;padding:8px 6px;border-radius:7px;
+  background:transparent;border:0;color:var(--muted);cursor:pointer;
+  font-size:12px;font-weight:600;letter-spacing:.2px;
+  transition:background-color .15s ease, color .15s ease;
+}
+.mode-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.mode-btn.active{background:rgba(34,224,211,.18);color:var(--text);
+  box-shadow:inset 0 0 0 1px var(--cyan)}
+.mode-btn .mode-tag{
+  font-size:9px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--muted);font-weight:600;
+}
+.mode-btn.active .mode-tag{color:var(--cyan)}
+.mode-block{margin-top:4px}
+.mode-block h3{
+  margin:4px 0 6px;font-size:12px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.6px;font-weight:600;
+}
+
+/* ==================================================================
+   GARMENT COLOR ROW + PRESETS + EYEDROPPER
+   ================================================================== */
+.garment-row{
+  display:grid;grid-template-columns:34px 1fr;gap:6px;align-items:center;
+  margin-top:6px;
+}
+#garment_picker{
+  width:34px;height:34px;padding:0;border:1px solid var(--border);
+  border-radius:8px;background:transparent;cursor:pointer;
+}
+#garment_picker::-webkit-color-swatch{border:0;border-radius:6px}
+#garment_picker::-webkit-color-swatch-wrapper{padding:2px;border-radius:8px}
+#garment_hex{
+  height:34px;padding:0 10px;border-radius:8px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  color:var(--text);font:600 12px/1 ui-monospace,SFMono-Regular,monospace;
+  text-transform:uppercase;letter-spacing:.5px;outline:none;width:100%;
+  transition:border-color .15s ease;
+}
+#garment_hex:focus{border-color:var(--cyan)}
+.btn.outline.compact{
+  height:34px;padding:0 10px;font-size:11px;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.garment-presets{
+  display:flex;gap:6px;margin:10px 0 4px;flex-wrap:wrap;
+}
+.g-preset{
+  width:22px;height:22px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
+  padding:0;cursor:pointer;position:relative;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.g-preset:hover{transform:translateY(-1px);
+  box-shadow:0 0 0 1px var(--cyan),0 0 6px rgba(34,224,211,.35)}
+.g-preset.active{box-shadow:0 0 0 2px var(--cyan),0 0 8px rgba(34,224,211,.5)}
+.g-preset[data-color="#ffffff"]{border-color:rgba(255,255,255,.5)}
+
+/* ==================================================================
+   PICKING MODE (gotero / eyedropper)
+   ==================================================================
+   Cuando el botón "Tomar de imagen" está activo, el cursor sobre el
+   viewer pasa a crosshair y se muestra un mini-hint flotante.
+*/
+.viewer.picking,
+.viewer.picking *{cursor:crosshair !important}
+.pick-hint{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.78);color:var(--cyan);
+  padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;
+  letter-spacing:.3px;border:1px solid var(--cyan);
+  display:none;pointer-events:none;z-index:20;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
+}
+.viewer.picking .pick-hint{display:block}
+#btn-pick-garment.active{
+  background:rgba(34,224,211,.2);border-color:var(--cyan);color:var(--cyan);
+}
+
+/* ==================================================================
+   PREVIEW BACKGROUND  vs  ALPHA REAL
+   ==================================================================
+   El "fondo del preview" es solo lo que el ojo ve POR DETRÁS del PNG
+   transparente generado. NO es parte del archivo exportado, no toca
+   el alpha real, ni la máscara, ni el procesamiento. Es una ayuda
+   visual para juzgar el arte sobre distintas superficies (playera
+   negra, blanca, gris, etc.).
+
+   El patrón a cuadros (checkerboard) es la convención universal en
+   Photoshop, Figma, Illustrator, etc. para representar transparencia
+   real: "aquí no hay pixel". El alfa del PNG sigue siendo 0 en esas
+   zonas; el checker es solo lo que se pinta detrás para que el ojo
+   distinga "transparente" de "blanco sólido".
+   ================================================================== */
 
 /* Viewer */
 .viewer{
-  position:relative;background:var(--shirt-color,#000);min-height:480px;
+  position:relative;background:var(--preview-bg,#ffffff);min-height:480px;
   border-radius:14px;overflow:hidden;border:1px solid var(--line);
   cursor:grab;user-select:none;
-  transition:background-color .15s;
+  transition:background-color .18s ease;
 }
 .viewer.grabbing{cursor:grabbing}
 .viewer-stage{
   position:absolute;top:0;left:0;width:100%;height:100%;
   transform-origin:0 0;will-change:transform;
+  z-index:1;
 }
 .viewer-stage canvas{
   position:absolute;top:0;left:0;display:none;
@@ -123,17 +368,22 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 .viewer.has-image .viewer-stage canvas#result{display:block}
 .viewer.has-image.view-original .viewer-stage canvas#result{display:none}
 .viewer.has-image.view-original .viewer-stage canvas#before{display:block !important}
+
+/* Checkerboard de transparencia tipo Photoshop · 16px por cuadro.
+   Implementado con conic-gradient (CSS puro, sin imagen externa).
+   Vive como overlay encima del background sólido, así el cambio
+   entre modos es solo un fundido de opacidad. */
 .viewer-checker{
-  position:absolute;inset:0;background:#000;
-  background-image:
-    linear-gradient(45deg,#0a0a0a 25%,transparent 25%),
-    linear-gradient(-45deg,#0a0a0a 25%,transparent 25%),
-    linear-gradient(45deg,transparent 75%,#0a0a0a 75%),
-    linear-gradient(-45deg,#0a0a0a 75%,transparent 75%);
-  background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;
-  display:none;
+  position:absolute;inset:0;
+  background:
+    conic-gradient(#d8d8d8 25%, #ffffff 0 50%, #d8d8d8 0 75%, #ffffff 0);
+  background-size: 16px 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  z-index: 0;
 }
-.viewer.show-checker .viewer-checker{display:block}
+.viewer.show-checker .viewer-checker{ opacity: 1 }
 .viewer-toolbar{
   position:absolute;top:10px;right:10px;z-index:10;
   display:flex;gap:2px;align-items:center;
@@ -238,53 +488,45 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 .card.collapsible.collapsed > *:not(h2){display:none !important}
 .card.collapsible.collapsed{padding-top:14px;padding-bottom:14px}
 
-/* Indicador del color actual de prenda dentro del botón del toolbar */
-.shirt-indicator{
-  width:14px;height:14px;border-radius:50%;
-  background:var(--shirt-color,#000);
-  border:1px solid rgba(255,255,255,.45);
-  display:inline-block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);
+/* Selector segmentado de fondo del preview · estilo Figma/Photoshop */
+.bg-selector{
+  display:flex;
+  background:rgba(255,255,255,.04);
+  border-radius:7px;
+  padding:2px;
+  gap:2px;
 }
-
-/* Popup color de prenda */
-.shirt-popup{
-  position:absolute;top:46px;right:10px;z-index:20;
-  background:rgba(18,18,26,.97);border:1px solid var(--line);
-  border-radius:10px;padding:12px;backdrop-filter:blur(12px);
-  box-shadow:0 12px 32px rgba(0,0,0,.55);
-  display:none;width:226px;
-}
-.shirt-popup.on{display:block}
-.shirt-popup h4{
-  margin:0 0 10px;font-size:10px;letter-spacing:1.2px;
-  text-transform:uppercase;color:var(--cyan);font-weight:700;
-}
-.shirt-swatches{
-  display:grid;grid-template-columns:repeat(6,1fr);gap:5px;
-}
-.shirt-sw{
-  width:100%;aspect-ratio:1;border-radius:6px;
-  border:1px solid rgba(255,255,255,.12);
-  cursor:pointer;transition:transform .12s,border-color .12s,box-shadow .12s;
+.bg-opt{
+  background:transparent;border:0;
+  width:26px;height:24px;
+  cursor:pointer;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
   padding:0;position:relative;
+  transition:background .15s ease;
 }
-.shirt-sw:hover{transform:scale(1.1);z-index:1}
-.shirt-sw.active{
-  border-color:var(--cyan);
-  box-shadow:0 0 0 1px var(--cyan),0 0 10px rgba(34,224,211,.4);
+.bg-opt:hover{background:rgba(255,255,255,.08)}
+.bg-opt:hover .bg-icon{transform:scale(1.1)}
+.bg-opt.active{background:rgba(34,224,211,.18)}
+.bg-opt.active .bg-icon{box-shadow:0 0 0 1px var(--cyan),0 0 8px rgba(34,224,211,.45)}
+
+.bg-icon{
+  display:block;
+  width:14px;height:14px;
+  border-radius:3px;
+  border:1px solid rgba(255,255,255,.28);
+  transition:transform .12s ease, box-shadow .15s ease;
 }
-.shirt-custom-row{
-  display:flex;gap:6px;align-items:center;margin-top:10px;
-  padding-top:10px;border-top:1px solid var(--line);
+.bg-icon-checker{
+  background:
+    conic-gradient(#d4d4d4 25%, #ffffff 0 50%, #d4d4d4 0 75%, #ffffff 0);
+  background-size: 7px 7px;
+  border-color:rgba(255,255,255,.35);
 }
-.shirt-custom-row label{margin:0;font-size:11px;color:var(--muted);flex-shrink:0}
-.shirt-custom-row input[type=color]{
-  width:34px;height:28px;border-radius:6px;border:1px solid var(--line);
-  background:#101019;cursor:pointer;padding:2px;flex-shrink:0;
-}
-.shirt-custom-row input[type=text]{
-  flex:1;padding:6px 8px;font-size:11px;
-  font-family:ui-monospace,Consolas,monospace;min-width:0;
+/* Ícono dinámico: muestra siempre el color de prenda actual.
+   El valor de --garment-color lo actualiza JS al cambiar el picker. */
+.bg-icon-garment{
+  background: var(--garment-color, #b32219);
+  border-color:rgba(255,255,255,.35);
 }
 
 @media(max-width:980px){
@@ -295,10 +537,30 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 }
 </style>
 </head>
-<body>
+<body data-ux="simple">
 <div class="wrap">
 
   <div class="col-left">
+
+    <!-- ==========================================================
+         UX MODE SWITCH (Simple ↔ Avanzado)
+         ==========================================================
+         Define qué controles ve el usuario. En modo SIMPLE solo aparecen
+         las decisiones de impresor (tipo de prenda, qué tanto eliminar,
+         tamaño del punto, cantidad de tinta...). En modo AVANZADO se
+         exponen TODOS los controles internos (OKLab, gamma, blackCut,
+         LPI exacto, ángulo, dot gain, AA, etc.). El algoritmo es el
+         mismo en ambos modos; lo único que cambia es lo que se muestra. -->
+    <div class="ux-mode-switch" id="uxModeSwitch" role="tablist" aria-label="Nivel de la interfaz">
+      <button class="ux-mode-btn active" data-ux="simple" type="button" role="tab" aria-selected="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>
+        <span>Simple</span>
+      </button>
+      <button class="ux-mode-btn" data-ux="advanced" type="button" role="tab" aria-selected="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7l-5 5 5 5M3 12h14"/><circle cx="20" cy="12" r="1.5"/></svg>
+        <span>Avanzado</span>
+      </button>
+    </div>
 
     <!-- 1. SUBIR + PREPARAR -->
     <div class="card collapsible" id="card-prep">
@@ -348,9 +610,11 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
       </div>
     </div>
 
-    <!-- 2. AJUSTES TONALES -->
-    <div class="card collapsible disabled-card" id="card-tonal">
-      <h2>2 · Ajustes tonales</h2>
+    <!-- 2. AJUSTES DE IMAGEN — solo en modo AVANZADO. Brillo/Contraste/Nitidez
+         son pre-procesamiento, útiles cuando el arte llega "flojo" pero el
+         usuario simple no debe lidiar con ellos. -->
+    <div class="card collapsible disabled-card advanced-only" id="card-tonal">
+      <h2>2 · Ajustes de imagen</h2>
 
       <label>Brillo <i class="help" data-tip="Multiplica el valor RGB. 1.0 = neutro. Sube si la imagen es muy oscura.">?</i><span class="val" id="v_brightness">1.00</span></label>
       <input type="range" id="brightness" min="0.4" max="1.8" step="0.01" value="1">
@@ -360,20 +624,140 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 
       <label>Nitidez <i class="help" data-tip="Resalta bordes con un filtro unsharp 3×3. Ayuda a preservar detalle fino en el semitono.">?</i><span class="val" id="v_sharpness">1.00</span></label>
       <input type="range" id="sharpness" min="0" max="3" step="0.05" value="1">
-
-      <label>Corte negro <i class="help" data-tip="Solo afecta al semitono. Tonos por debajo se convierten en transparente (no se imprimen).">?</i><span class="val" id="v_black_cut">35</span></label>
-      <input type="range" id="black_cut" min="0" max="180" step="1" value="35">
-
-      <label>Corte blanco <i class="help" data-tip="Solo afecta al semitono. Tonos por encima quedan sólidos (100% tinta).">?</i><span class="val" id="v_white_cut">225</span></label>
-      <input type="range" id="white_cut" min="80" max="255" step="1" value="225">
-
-      <label>Gamma <i class="help" data-tip="Curva los medios tonos del semitono. >1 abre sombras, <1 oscurece medios.">?</i><span class="val" id="v_gamma">1.00</span></label>
-      <input type="range" id="gamma" min="0.3" max="2.5" step="0.01" value="1">
     </div>
 
-    <!-- 3. SEMITONO -->
+    <!-- ==============================================================
+         3. COLOR DE PRENDA / MODO DE SEPARACIÓN
+
+         Selecciona CÓMO se decide qué pixel se elimina:
+
+           · POR LUMINANCIA  → para prenda NEGRA.
+             Lo oscuro de la imagen = transparente.
+             Lo claro = tinta. Lo intermedio = semitono.
+
+           · POR COLOR       → para prenda DE COLOR (roja, azul, etc.)
+             Se mide la distancia perceptual (OKLab) entre cada pixel y
+             el color de prenda elegido. Los pixels muy cercanos al
+             color de la prenda se eliminan; los muy lejanos quedan
+             sólidos; los intermedios se semitonen.
+
+         La distinción importa porque sobre prenda negra basta el brillo
+         (negro = ausencia de tinta), pero sobre una prenda roja un
+         pixel rojo idéntico no debe imprimirse aunque no sea “oscuro”.
+    ============================================================== -->
+    <!-- ==============================================================
+         3. TU PRENDA
+         Bloque principal del modo SIMPLE: el impresor elige el TIPO de
+         prenda (preset), opcionalmente ajusta cuánto quiere eliminar
+         y cuánto semitono quiere en la transición. Internamente cada
+         preset configura mode + color + tolerancia + feather + gamma
+         + dot-gain de manera coherente para esa playera.
+    ============================================================== -->
+    <div class="card collapsible disabled-card" id="card-garment">
+      <h2>3 · Tu prenda</h2>
+
+      <!-- Presets de tipo de prenda — visibles en SIMPLE y AVANZADO -->
+      <div class="section-title">Elegí tu playera</div>
+      <div class="garment-type-grid" id="garmentTypeGrid">
+        <button class="g-type active" data-preset="negra"  type="button"><span class="g-chip" style="background:#0a0a0a"></span>Negra</button>
+        <button class="g-type"        data-preset="blanca" type="button"><span class="g-chip" style="background:#ffffff"></span>Blanca</button>
+        <button class="g-type"        data-preset="roja"   type="button"><span class="g-chip" style="background:#b32219"></span>Roja</button>
+        <button class="g-type"        data-preset="azul"   type="button"><span class="g-chip" style="background:#1d4ed8"></span>Azul</button>
+        <button class="g-type"        data-preset="gris"   type="button"><span class="g-chip" style="background:#7d7d7d"></span>Gris</button>
+        <button class="g-type"        data-preset="beige"  type="button"><span class="g-chip" style="background:#d4c39c"></span>Beige</button>
+        <button class="g-type"        data-preset="verde"  type="button"><span class="g-chip" style="background:#1f5340"></span>Verde</button>
+        <button class="g-type"        data-preset="custom" type="button"><span class="g-chip g-chip-custom"></span>Otro color</button>
+      </div>
+
+      <!-- Acciones rápidas — visibles en ambos modos -->
+      <div class="garment-actions">
+        <button class="btn outline compact" id="btn-auto-detect" type="button" title="Analiza los bordes de la imagen y propone el color de prenda dominante">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Detectar color</span>
+        </button>
+        <button class="btn outline compact" id="btn-pick-garment" type="button" title="Toca un pixel sobre la imagen para usar ese color como prenda">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22l4-4"/><path d="M14.5 6.5L20 1l3 3-5.5 5.5"/><path d="M3 21l4-1L18 9l-3-3L4 17l-1 4z"/></svg>
+          <span>Tomar de imagen</span>
+        </button>
+      </div>
+
+      <!-- Editor de color (siempre visible: permite afinar el preset elegido) -->
+      <div class="garment-row">
+        <input type="color" id="garment_picker" value="#000000" title="Color exacto de la prenda">
+        <input type="text" id="garment_hex" value="#000000" maxlength="7" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="picked-preview" id="pickedPreview" style="display:none">
+        <span class="pp-chip" id="ppChip"></span>
+        <span id="ppLabel">Color tomado</span>
+      </div>
+
+      <!-- ============== SLIDERS SIMPLES (modo SIMPLE) ============== -->
+      <div class="simple-only">
+        <label>Qué tanto eliminar <i class="help" data-tip="Sube si la playera todavía se asoma en zonas que deberían ser invisibles. Baja si tu arte está perdiendo zonas que querés imprimir.">?</i><span class="val" id="v_s_remove">35</span></label>
+        <input type="range" id="s_remove" min="0" max="100" step="1" value="35">
+
+        <label>Cantidad de semitono <i class="help" data-tip="Más alto = transición más amplia entre la playera y la tinta sólida, con más puntos visibles. Más bajo = bordes más duros.">?</i><span class="val" id="v_s_spread">50</span></label>
+        <input type="range" id="s_spread" min="0" max="100" step="1" value="50">
+      </div>
+
+      <!-- ============ CONTROLES AVANZADOS (modo AVANZADO) ============ -->
+      <div class="advanced-only">
+        <div class="section-title">Modo de separación</div>
+        <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Modo de separación">
+          <button class="mode-btn active" data-mode="luminance" type="button" role="tab" aria-selected="true">
+            <span>Por luminancia</span>
+            <span class="mode-tag">prenda negra</span>
+          </button>
+          <button class="mode-btn" data-mode="color" type="button" role="tab" aria-selected="false">
+            <span>Por color</span>
+            <span class="mode-tag">prenda de color</span>
+          </button>
+        </div>
+
+        <label>Gamma <i class="help" data-tip="Curva los medios tonos del tono que alimenta el semitono. >1 abre sombras, <1 oscurece medios.">?</i><span class="val" id="v_gamma">1.00</span></label>
+        <input type="range" id="gamma" min="0.3" max="2.5" step="0.01" value="1">
+
+        <div id="lum-mode-block" class="mode-block">
+          <label>Corte negro <i class="help" data-tip="Tonos por debajo se eliminan (transparentes). Es el rango que la prenda negra ya absorbe.">?</i><span class="val" id="v_black_cut">35</span></label>
+          <input type="range" id="black_cut" min="0" max="180" step="1" value="35">
+
+          <label>Corte blanco <i class="help" data-tip="Tonos por encima quedan 100% sólidos (tinta plena).">?</i><span class="val" id="v_white_cut">225</span></label>
+          <input type="range" id="white_cut" min="80" max="255" step="1" value="225">
+        </div>
+
+        <div id="color-mode-block" class="mode-block hidden">
+          <label>Tolerancia <i class="help" data-tip="Distancia de color por debajo de la cual el pixel se considera prenda y se elimina (alpha=0). 0 = exacto, 100 = generoso.">?</i><span class="val" id="v_color_tol">15</span></label>
+          <input type="range" id="color_tol" min="0" max="100" step="1" value="15">
+
+          <label>Zona de transición <i class="help" data-tip="Ancho de la franja donde aparece el semitono entre la prenda y la zona sólida. Mayor = transición más suave.">?</i><span class="val" id="v_color_feather">30</span></label>
+          <input type="range" id="color_feather" min="0" max="120" step="1" value="30">
+
+          <label>Sensibilidad de color <i class="help" data-tip="Peso de los canales a/b (matiz) en la distancia. >1 = más sensible a matices; <1 = más permisivo con variaciones de matiz.">?</i><span class="val" id="v_color_chroma">1.00</span></label>
+          <input type="range" id="color_chroma" min="0.3" max="2.5" step="0.05" value="1">
+
+          <label class="toggle">
+            <input type="checkbox" id="preserve_luma">
+            <span>Conservar luminosidad</span>
+            <i class="help" data-tip="Ignora diferencias de brillo. Así sombras o dobleces sobre la prenda también se consideran prenda y se eliminan.">?</i>
+          </label>
+        </div>
+      </div>
+
+      <small class="advanced-only">
+        <b>Por luminancia</b>: lo oscuro de la imagen se elimina (ideal para prenda <b>negra</b>).<br>
+        <b>Por color</b>: se elimina lo parecido al color de prenda elegido (ideal para <b>rojo, azul, beige</b>, etc.). El semitono aparece SOLO en la franja de transición.
+      </small>
+    </div>
+
+    <!-- ==============================================================
+         4. SEMITONO / IMPRESIÓN
+         En SIMPLE el impresor ve solo tres decisiones: tamaño de punto,
+         cantidad de tinta y conservación de detalles. En AVANZADO se
+         exponen los parámetros reales del clustered-dot screen (LPI,
+         ángulo, mín-dot en mm, anti-alias).
+    ============================================================== -->
     <div class="card collapsible disabled-card" id="card-screen">
-      <h2>3 · Trama de semitono</h2>
+      <h2>4 · Semitono / Impresión</h2>
 
       <label class="toggle strong">
         <input type="checkbox" id="halftone_enabled">
@@ -381,7 +765,11 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
       </label>
 
       <div id="halftone-block" class="disabled-block">
-        <label>LPI <i class="help" data-tip="Líneas por pulgada. Más alto = trama más fina (más detalle imprimible, requiere más resolución de malla).">?</i><span class="val" id="v_lpi">35</span></label>
+        <!-- Controles técnicos del clustered-dot screen. Los impresores
+             piensan en LPI/ángulo/mín-dot, así que aparecen en ambos modos.
+             Anti-alias queda como avanzado porque es decisión de "estética
+             1-bit vs suave" que no todos necesitan tocar. -->
+        <label>Lineatura (LPI) <i class="help" data-tip="Líneas por pulgada. Más alto = trama más fina (más detalle imprimible, requiere más resolución de malla).">?</i><span class="val" id="v_lpi">35</span></label>
         <input type="range" id="lpi" min="15" max="65" step="1" value="35">
 
         <label>Ángulo <i class="help" data-tip="Inclinación de la trama. 22.5° es el ángulo clásico para tinta única en serigrafía.">?</i><span class="val" id="v_angle">22.5</span></label>
@@ -390,9 +778,10 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
         <label>Punto mínimo (mm) <i class="help" data-tip="Tamaño físico mínimo de un punto. Los puntos más finos no son imprimibles de forma confiable y se descartan.">?</i><span class="val" id="v_min_dot_mm">0.20</span></label>
         <input type="range" id="min_dot_mm" min="0" max="0.8" step="0.01" value="0.2">
 
-        <label class="toggle">
+        <label class="toggle advanced-only">
           <input type="checkbox" id="soft_edges">
-          Bordes suaves (anti-alias del alpha)
+          <span>Anti-alias en bordes de puntos</span>
+          <i class="help" data-tip="Suaviza el borde de cada punto con ~1 px de transición. Desactivado da salida pura 1-bit estilo Bitmap › Halftone Screen de Photoshop.">?</i>
         </label>
       </div>
 
@@ -403,7 +792,7 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
       <div class="status" id="status"></div>
 
       <small>
-        Negro = transparente. Blanco = sólido. Grises = trama si el semitono está activo.
+        Rojo en zonas = transparente. Verde = tinta sólida. Naranja = semitono.
         El PNG conserva transparencia real y el DPI elegido queda embebido.
       </small>
     </div>
@@ -412,14 +801,26 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
   <!-- VISTA PREVIA -->
   <div class="card">
     <div class="view-tabs" id="viewTabs">
-      <button class="vtab active" data-view="result">Resultado</button>
-      <button class="vtab" data-view="original">Original</button>
+      <button class="vtab active" data-view="result"   title="Diseño final con la transparencia aplicada">Resultado</button>
+      <button class="vtab"        data-view="original" title="Imagen original sin separación">Original</button>
+      <button class="vtab"        data-view="mask"     title="Canal alpha (blanco = imprime, negro = transparente)">Máscara</button>
+      <button class="vtab"        data-view="zones"    title="Mapa visual: rojo = eliminado, naranja = semitoneado, verde = sólido">Zonas</button>
     </div>
     <div class="viewer" id="viewer">
       <div class="viewer-checker"></div>
       <div class="viewer-stage" id="stage">
         <canvas id="before"></canvas>
         <canvas id="result"></canvas>
+        <canvas id="mask"></canvas>
+        <canvas id="zones"></canvas>
+      </div>
+
+      <!-- Leyenda visible solo en la pestaña Zonas. Es UX puro: no afecta
+           el PNG exportado, solo le muestra al usuario qué hace cada zona. -->
+      <div class="zones-legend">
+        <span><span class="swatch sw-red"></span>Se elimina</span>
+        <span><span class="swatch sw-orange"></span>Semitono</span>
+        <span><span class="swatch sw-green"></span>Tinta sólida</span>
       </div>
 
       <div class="viewer-toolbar">
@@ -430,22 +831,25 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
         <button id="vt_fit" title="Ajustar a vista (0)">⤧</button>
         <button id="vt_100" title="Tamaño real 100% (1)">1:1</button>
         <div class="sep"></div>
-        <button id="vt_shirt" title="Color de prenda"><span class="shirt-indicator"></span></button>
-        <button id="vt_checker" title="Mostrar fondo a cuadros (C)">▦</button>
-      </div>
-
-      <div class="shirt-popup" id="shirtPopup">
-        <h4>Color de prenda</h4>
-        <div class="shirt-swatches" id="shirtSwatches"></div>
-        <div class="shirt-custom-row">
-          <label>Custom</label>
-          <input type="color" id="shirtPicker" value="#000000">
-          <input type="text" id="shirtHex" value="#000000" maxlength="7" spellcheck="false">
+        <div class="bg-selector" role="group" aria-label="Fondo del preview">
+          <button class="bg-opt active" data-bg="checker" title="Transparencia (checkerboard) — atajo C">
+            <span class="bg-icon bg-icon-checker"></span>
+          </button>
+          <button class="bg-opt" data-bg="garment" title="Color de prenda seleccionado">
+            <span class="bg-icon bg-icon-garment"></span>
+          </button>
+          <button class="bg-opt" data-bg="black" title="Negro (simula playera oscura)">
+            <span class="bg-icon" style="background:#000"></span>
+          </button>
+          <button class="bg-opt" data-bg="white" title="Blanco (simula prenda clara)">
+            <span class="bg-icon" style="background:#fff"></span>
+          </button>
         </div>
       </div>
 
       <div class="viewer-hud" id="vt_hud">—</div>
       <div class="viewer-busy" id="vt_busy">Procesando</div>
+      <div class="pick-hint">🎯 Haz clic en la imagen para tomar el color de prenda (Esc para cancelar)</div>
       <div class="placeholder">Sube o arrastra una imagen para comenzar</div>
     </div>
   </div>
@@ -485,16 +889,36 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
     updatingRatio: false,
     firstResult: true,
     fileName: 'arte',
+    // UX
+    uxMode: 'simple',            // 'simple' | 'advanced' — qué controles ve el usuario
+    garmentPreset: 'negra',      // preset de tipo de prenda activo (ver GARMENT_PRESETS)
     // Vistas
-    viewMode: 'result',          // 'result' | 'original'
+    viewMode: 'result',          // 'result' | 'original' | 'mask' | 'zones'
+    previewBg: 'checker',        // 'checker' | 'garment' | 'black' | 'white' — solo visual
+    // Modo de separación (afecta cómo se calcula el tono que alimenta el semitono)
+    //   'luminance' → para PRENDA NEGRA (lo oscuro se elimina)
+    //   'color'     → para PRENDA DE COLOR (lo parecido al color de prenda se elimina)
+    separationMode: 'luminance',
+    garmentColor: { r: 0x00, g: 0x00, b: 0x00, hex: '#000000', lab: null },
+    pickingGarment: false,
+    // Snapshot del canvas redimensionado (sin tonal) para el gotero
+    workingCanvas: null,
     // Resultado actual (para repintar entre modos sin reprocesar)
-    lastResult: null,            // { w, h, dpi, colorData, alphaArray, fastMode, halftoneOn }
+    lastResult: null,            // { w, h, dpi, colorData, alphaArray, tone, fastMode, halftoneOn }
   };
+  // Nota: S.garmentColor.lab se rellena más abajo (después de que srgbToOklab
+  // tenga su LUT inicializada). NO calcular aquí: este bloque se ejecuta
+  // antes que el `const SRGB_TO_LINEAR_LUT = (()=>{…})()` lo que provocaría
+  // un ReferenceError por TDZ y rompería toda la app.
 
   // ==================================================================
-  //   Live labels para sliders
+  //   Live labels para sliders (avanzados + simples)
   // ==================================================================
-  ['brightness','contrast','sharpness','black_cut','white_cut','gamma','lpi','angle','min_dot_mm']
+  ['brightness','contrast','sharpness','black_cut','white_cut','gamma',
+   'lpi','angle','min_dot_mm',
+   'color_tol','color_feather','color_chroma',
+   // simples (modo SIMPLE)
+   's_remove','s_spread']
     .forEach((id) => {
       const el = $(id), out = $('v_' + id);
       if (!el || !out) return;
@@ -502,6 +926,196 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
       el.addEventListener('input', upd);
       upd();
     });
+
+  // ==================================================================
+  //   UX MODE SWITCH (Simple ↔ Avanzado)
+  // ==================================================================
+  //   Cambia qué controles se ven. NO afecta el procesamiento: el
+  //   algoritmo siempre lee de los parámetros avanzados (las sliders
+  //   simples se sincronizan a las avanzadas al moverse).
+  function setUxMode(mode){
+    if (!['simple','advanced'].includes(mode)) mode = 'simple';
+    S.uxMode = mode;
+    document.body.dataset.ux = mode;
+    document.querySelectorAll('#uxModeSwitch .ux-mode-btn').forEach((b) => {
+      const active = b.dataset.ux === mode;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    // Al pasar a Simple, refresca los sliders simples desde los avanzados
+    // (por si el usuario tocó manualmente algún slider técnico).
+    if (mode === 'simple') syncSimpleFromAdvanced();
+  }
+  document.querySelectorAll('#uxModeSwitch .ux-mode-btn').forEach((b) => {
+    b.addEventListener('click', () => setUxMode(b.dataset.ux));
+  });
+
+  // Mapeo inverso AVANZADO → SIMPLE (cuando volvemos a Simple).
+  function syncSimpleFromAdvanced(){
+    const mode = S.separationMode;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    // s_remove: en color usa la tolerancia; en luminancia el blackCut.
+    const remove = mode === 'color'
+      ? parseFloat($('color_tol').value)
+      : parseFloat($('black_cut').value);
+    const sRemove = clamp(Math.round(remove), 0, 100);
+    $('s_remove').value = sRemove;
+    $('v_s_remove').textContent = sRemove;
+    // s_spread: feather en color; ancho de la franja en luminancia.
+    let sSpread;
+    if (mode === 'color'){
+      sSpread = Math.round(parseFloat($('color_feather').value) / 120 * 100);
+    } else {
+      const bc = parseFloat($('black_cut').value);
+      const wc = parseFloat($('white_cut').value);
+      sSpread = Math.round((wc - bc - 80));
+    }
+    sSpread = clamp(sSpread, 0, 100);
+    $('s_spread').value = sSpread;
+    $('v_s_spread').textContent = sSpread;
+  }
+
+  // ==================================================================
+  //   PRESETS DE TIPO DE PRENDA
+  // ==================================================================
+  //   Cada preset configura DE UNA vez:
+  //     · separationMode  (luminance para negra, color para el resto)
+  //     · garmentColor    (color exacto de esa playera tipo)
+  //     · sliders simples (qué tanto eliminar, semitono, tinta…)
+  //     · preview bg      (la previsualización pasa al color de prenda)
+  //
+  //   Los valores están afinados para imprimir DTF/serigrafía sobre cada
+  //   color, no son números mágicos: se eligieron probando el screen AM
+  //   con coverage típica.
+  const GARMENT_PRESETS = {
+    negra:  { mode:'luminance', hex:'#000000', s_remove:35, s_spread:60, preview:'black' },
+    blanca: { mode:'color',     hex:'#FFFFFF', s_remove:20, s_spread:35, preview:'white' },
+    roja:   { mode:'color',     hex:'#B32219', s_remove:22, s_spread:35, preview:'garment' },
+    azul:   { mode:'color',     hex:'#1D4ED8', s_remove:22, s_spread:35, preview:'garment' },
+    gris:   { mode:'color',     hex:'#7D7D7D', s_remove:25, s_spread:40, preview:'garment' },
+    beige:  { mode:'color',     hex:'#D4C39C', s_remove:22, s_spread:35, preview:'garment' },
+    verde:  { mode:'color',     hex:'#1F5340', s_remove:22, s_spread:35, preview:'garment' },
+    custom: { mode:'color',     hex:null,      s_remove:22, s_spread:35, preview:'garment' },
+  };
+  function applyGarmentPreset(name){
+    const p = GARMENT_PRESETS[name];
+    if (!p) return;
+    S.garmentPreset = name;
+    document.querySelectorAll('#garmentTypeGrid .g-type').forEach((b) => {
+      b.classList.toggle('active', b.dataset.preset === name);
+    });
+    // Ocultar swatch del último eyedropper si cambiamos de prenda
+    const pp = $('pickedPreview');
+    if (pp) pp.style.display = 'none';
+    setSeparationMode(p.mode);
+    if (p.hex) setGarmentColorFromHex(p.hex, { skipReprocess: true, keepPreset: true });
+    // Cargar sliders simples y propagar a los avanzados
+    ['s_remove','s_spread'].forEach((id) => {
+      const v = p[id];
+      const el = $(id);
+      el.value = v;
+      $('v_' + id).textContent = v;
+      SIMPLE_SYNC[id](v);
+    });
+    // Sugerir el fondo de preview adecuado
+    if (p.preview) setPreviewBg(p.preview);
+    if (S.sourceCanvas) scheduleProcess();
+  }
+
+  // ==================================================================
+  //   SIMPLE → AVANZADO  (sync de sliders amigables a los técnicos)
+  // ==================================================================
+  //   Cada slider simple controla múltiples avanzados a la vez. La idea:
+  //     · s_remove (Qué tanto eliminar) → tolerancia (color) o black_cut
+  //                                       (luminancia). Más alto = más se
+  //                                       elimina de la prenda.
+  //     · s_spread (Cantidad de semitono) → feather (color) o ancho
+  //                                       blackCut↔whiteCut (luminancia).
+  //                                       Más alto = banda de transición
+  //                                       más ancha → más puntos visibles.
+  //   LPI, ángulo y punto mínimo (mm) son controles directos visibles en
+  //   ambos modos: los impresores piensan en esos términos, no en abstrac-
+  //   ciones, así que no los facetamos detrás de un slider amigable.
+  const SIMPLE_SYNC = {
+    s_remove: (v) => {
+      // 0..100 simple → 0..100 tolerancia (color) ó 0..180 black_cut (luminancia)
+      $('color_tol').value = v;
+      $('v_color_tol').textContent = v;
+      const bc = Math.round((v / 100) * 180);
+      $('black_cut').value = bc;
+      $('v_black_cut').textContent = bc;
+    },
+    s_spread: (v) => {
+      // color: 0..100 → 0..120 feather
+      const f = Math.round((v / 100) * 120);
+      $('color_feather').value = f;
+      $('v_color_feather').textContent = f;
+      // luminancia: ajusta whiteCut para que la franja blackCut↔whiteCut
+      // crezca con `v`. blackCut ya viene del s_remove.
+      const wc = Math.min(255, parseInt($('black_cut').value, 10) + 80 + Math.round((v/100) * 100));
+      $('white_cut').value = wc;
+      $('v_white_cut').textContent = wc;
+    },
+  };
+  Object.keys(SIMPLE_SYNC).forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      SIMPLE_SYNC[id](parseFloat(el.value));
+      if (S.sourceCanvas) scheduleProcess();
+    });
+  });
+  // Aplicar valores iniciales de sliders simples a los avanzados
+  Object.keys(SIMPLE_SYNC).forEach((id) => {
+    const el = $(id);
+    if (el) SIMPLE_SYNC[id](parseFloat(el.value));
+  });
+
+  // ==================================================================
+  //   AUTO-DETECTAR COLOR DE PRENDA
+  // ==================================================================
+  //   Toma muestras de los CUATRO bordes de la imagen (donde típicamente
+  //   está el fondo / la prenda) y promedia los pixeles opacos. Funciona
+  //   muy bien para fotos de productos con fondo de un color uniforme.
+  function detectGarmentColorFromImage(){
+    const src = S.workingCanvas || S.sourceCanvas;
+    if (!src){
+      setStatus('Carga una imagen primero.', 'err');
+      return;
+    }
+    const ctx = src.getContext('2d');
+    const w = src.width, h = src.height;
+    const band = Math.max(2, Math.floor(Math.min(w, h) * 0.05));
+    let r = 0, g = 0, b = 0, n = 0;
+    function sample(strip){
+      for (let i = 0; i < strip.length; i += 4){
+        if (strip[i+3] < 200) continue;
+        r += strip[i]; g += strip[i+1]; b += strip[i+2]; n++;
+      }
+    }
+    sample(ctx.getImageData(0, 0, w, band).data);                  // arriba
+    sample(ctx.getImageData(0, h - band, w, band).data);           // abajo
+    sample(ctx.getImageData(0, band, band, h - 2*band).data);      // izquierda
+    sample(ctx.getImageData(w - band, band, band, h - 2*band).data); // derecha
+    if (!n){
+      setStatus('No pude detectar un color dominante (¿imagen muy transparente?).', 'err');
+      return;
+    }
+    r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+    const hex = rgbToHex(r, g, b);
+    // Pasar a preset "custom" y aplicar el color
+    applyGarmentPreset('custom');
+    setGarmentColorFromHex(hex);
+    setStatus(`Color detectado: ${hex.toUpperCase()} (promedio de los bordes)`, 'ok');
+  }
+  $('btn-auto-detect').addEventListener('click', detectGarmentColorFromImage);
+
+  // ==================================================================
+  //   Click handler de los presets de tipo de prenda
+  // ==================================================================
+  document.querySelectorAll('#garmentTypeGrid .g-type').forEach((b) => {
+    b.addEventListener('click', () => applyGarmentPreset(b.dataset.preset));
+  });
 
   // ==================================================================
   //   Drag & Drop sobre toda la página
@@ -588,6 +1202,7 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 
       $('prep-block').style.display = '';
       $('card-tonal').classList.remove('disabled-card');
+      $('card-garment').classList.remove('disabled-card');
       $('card-screen').classList.remove('disabled-card');
       $('btn-process').disabled = false;
       updateTargetInfo();
@@ -720,7 +1335,17 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
   function syncHalftoneUi(){
     $('halftone-block').classList.toggle('disabled-block', !$('halftone_enabled').checked);
   }
-  $('halftone_enabled').addEventListener('change', () => { syncHalftoneUi(); scheduleProcess(0); });
+  $('halftone_enabled').addEventListener('change', () => {
+    syncHalftoneUi();
+    // Al ENCENDER el semitono, saltar al fondo de transparencia (checker)
+    // así el usuario ve inmediatamente los puntos sobre los cuadros. Es
+    // el feedback más útil porque revela el alpha real del PNG.
+    // (Al apagarlo no cambiamos el fondo: dejamos donde estaba el usuario.)
+    if ($('halftone_enabled').checked && S.previewBg !== 'checker'){
+      setPreviewBg('checker');
+    }
+    scheduleProcess(0);
+  });
   syncHalftoneUi();
 
   // ==================================================================
@@ -732,14 +1357,25 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
       brightness: parseFloat($('brightness').value),
       contrast:   parseFloat($('contrast').value),
       sharpness:  parseFloat($('sharpness').value),
+      // Modo luminancia
       blackCut:   parseFloat($('black_cut').value),
       whiteCut:   parseFloat($('white_cut').value),
+      // Modo color
+      separationMode: S.separationMode,
+      garmentLab:     S.garmentColor.lab,
+      colorTol:       parseFloat($('color_tol').value),
+      colorFeather:   parseFloat($('color_feather').value),
+      colorChroma:    parseFloat($('color_chroma').value),
+      preserveLuma:   $('preserve_luma').checked,
+      // Curva común
       gamma:      Math.max(0.05, parseFloat($('gamma').value)),
+      // Trama
       lpi:        Math.max(5, parseFloat($('lpi').value)),
       angleDeg:   parseFloat($('angle').value),
       minDotMm:   Math.max(0, parseFloat($('min_dot_mm').value)),
       softEdges:  $('soft_edges').checked,
       halftoneOn: $('halftone_enabled').checked,
+      // Salida
       newWcm:     parseFloat($('new_w_cm').value) || 0,
       newHcm:     parseFloat($('new_h_cm').value) || 0,
       targetDpi:  Math.max(1, parseFloat($('target_dpi').value) || 300),
@@ -821,8 +1457,33 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
   }
 
   // ==================================================================
-  //   Luminancia + Halftone AM
+  //   ELIMINACIÓN POR LUMINOSIDAD  vs  ELIMINACIÓN POR COLOR
+  //
+  //   La app puede generar la separación de DOS maneras distintas según
+  //   el tipo de prenda:
+  //
+  //   A. MODO LUMINANCIA (para PRENDA NEGRA)
+  //      → El "color invisible" de la prenda es el negro.
+  //      → Cuanto más oscuro un pixel, menos tinta necesita para verse.
+  //      → tono = (luminancia - blackCut) / (whiteCut - blackCut)
+  //      → Funciona muy bien porque la prenda negra ya hace de tinta negra:
+  //         lo más oscuro de la imagen = no se imprime.
+  //
+  //   B. MODO COLOR (para PRENDA DE COLOR: roja, azul, verde, beige, etc.)
+  //      → El "color invisible" lo elige el usuario (el color de su prenda).
+  //      → tono = distancia perceptual (OKLab) entre el pixel y ese color.
+  //      → Pixels CERCA del color de prenda = se vuelven transparentes (no
+  //         se imprime nada, deja ver la prenda).
+  //      → Pixels MEDIO-CERCA = van a semitono (transición suave).
+  //      → Pixels LEJOS del color de prenda = tinta sólida.
+  //
+  //   AMBOS modos producen un array `tone` ∈ [0, 1] que se procesa con la
+  //   MISMA función `makeHalftoneAlpha`. Solo cambia cómo se calcula el
+  //   `tone`; el resto del pipeline (halftone, alpha, exportación) es
+  //   idéntico.
   // ==================================================================
+
+  // ---- Luminancia (Rec. 709) ----------------------------------------
   function toLuminance(rgba, w, h){
     const N = w * h;
     const gray = new Uint8ClampedArray(N);
@@ -832,36 +1493,130 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
     }
     return gray;
   }
-  function makeHalftoneAlpha(gray, w, h, params){
-    const { lpi, angleDeg, blackCut, whiteCut, gamma, minDotMm, softEdges, targetDpi } = params;
-    const N = w * h;
-    const cell  = Math.max(3.0, targetDpi / lpi);
-    const angle = angleDeg * Math.PI / 180;
-    const ca = Math.cos(angle), sa = Math.sin(angle);
-    const denom = Math.max(1, whiteCut - blackCut);
-    const cx = w / 2, cy = h / 2;
 
+  // ---- OKLab (espacio de color perceptualmente uniforme) ------------
+  //   sRGB → linear (LUT 256, evita pow en cada pixel) → LMS → cbrt → Lab.
+  //   Devuelve [L, a, b]. L ∈ [0,1], a/b ≈ [-0.4, 0.4]. La distancia
+  //   euclidiana en OKLab aproxima muy bien la percepción humana, mucho
+  //   mejor que distancia RGB cruda.
+  // -------------------------------------------------------------------
+  const SRGB_TO_LINEAR_LUT = (() => {
+    const lut = new Float32Array(256);
+    for (let i = 0; i < 256; i++){
+      const c = i / 255;
+      lut[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    return lut;
+  })();
+  function srgbToOklab(r, g, b){
+    const lr = SRGB_TO_LINEAR_LUT[r];
+    const lg = SRGB_TO_LINEAR_LUT[g];
+    const lb = SRGB_TO_LINEAR_LUT[b];
+    const l = 0.4122214708*lr + 0.5363325363*lg + 0.0514459929*lb;
+    const m = 0.2119034982*lr + 0.6806995451*lg + 0.1073969566*lb;
+    const s = 0.0883024619*lr + 0.2817188376*lg + 0.6299787005*lb;
+    const lc = Math.cbrt(l), mc = Math.cbrt(m), sc = Math.cbrt(s);
+    return [
+      0.2104542553*lc + 0.7936177850*mc - 0.0040720468*sc,
+      1.9779984951*lc - 2.4285922050*mc + 0.4505937099*sc,
+      0.0259040371*lc + 0.7827717662*mc - 0.8086757660*sc,
+    ];
+  }
+
+  // ---- Tono desde luminancia (modo prenda negra) --------------------
+  function toneFromLuminance(rgba, w, h, blackCut, whiteCut, gamma){
+    const gray = toLuminance(rgba, w, h);
+    const N = w * h;
     const tone = new Float32Array(N);
+    const denom = Math.max(1, whiteCut - blackCut);
     for (let i = 0; i < N; i++){
       let v = (gray[i] - blackCut) / denom;
       if (v < 0) v = 0; else if (v > 1) v = 1;
       tone[i] = Math.pow(v, gamma);
     }
+    return tone;
+  }
 
+  // ---- Tono desde distancia de color (modo prenda de color) ---------
+  //   garment = [L, a, b] del color de prenda (precalculado una vez).
+  //   tol/feather están en escala UI (0..100 = 0..0.5 OKLab).
+  //   - dist <= tol            → tono 0 (transparente)
+  //   - tol < dist < tol+feather → tono lineal 0..1 (zona de transición,
+  //                                aquí es donde aparecen los semitonos)
+  //   - dist >= tol+feather    → tono 1 (sólido)
+  //   chromaWeight pondera el peso de a/b (cromaticidad) sobre L.
+  //   preserveLuma reduce la contribución de L para que cambios de brillo
+  //   sobre la prenda (sombras, dobleces) también se eliminen.
+  // -------------------------------------------------------------------
+  function toneFromColorDistance(rgba, w, h, garment, tolUI, featherUI, chromaWeight, preserveLuma, gamma){
+    const N = w * h;
+    const tone = new Float32Array(N);
+    const UI_TO_OK = 1 / 200;                 // 100 UI → 0.5 OKLab
+    const tol = tolUI * UI_TO_OK;
+    const feather = Math.max(0.0001, featherUI * UI_TO_OK);
+    const upper = tol + feather;
+    const Lw = preserveLuma ? 0.3 : 1.0;
+    const Cw = chromaWeight;
+
+    for (let i = 0; i < N; i++){
+      const o = i * 4;
+      const lab = srgbToOklab(rgba[o], rgba[o+1], rgba[o+2]);
+      const dL = (lab[0] - garment[0]) * Lw;
+      const da = (lab[1] - garment[1]) * Cw;
+      const db = (lab[2] - garment[2]) * Cw;
+      const dist = Math.sqrt(dL*dL + da*da + db*db);
+      let v;
+      if (dist <= tol) v = 0;
+      else if (dist >= upper) v = 1;
+      else v = (dist - tol) / feather;
+      tone[i] = Math.pow(v, gamma);
+    }
+    return tone;
+  }
+
+  // ---- Tono → Alpha directo (cuando halftone está OFF) --------------
+  function toneToAlpha(tone){
+    const out = new Uint8ClampedArray(tone.length);
+    for (let i = 0; i < tone.length; i++) out[i] = (tone[i] * 255) | 0;
+    return out;
+  }
+
+  // ==================================================================
+  //   CLUSTERED-DOT ORDERED HALFTONE (estilo Bitmap > Halftone Screen)
+  //
+  //   Recibe un `tone` ∈ [0,1] ya calculado (por luminancia o por color).
+  //   Lo aplica con AM screening: cada celda contiene un punto cuyo
+  //   ÁREA es proporcional al tono promedio. Rejilla rotada y uniforme,
+  //   con un punto exactamente en el centro de la imagen.
+  // ==================================================================
+  function makeHalftoneAlpha(tone, w, h, params){
+    const { lpi, angleDeg, minDotMm, softEdges, targetDpi } = params;
+    const N = w * h;
+
+    const cell = Math.max(2.0, targetDpi / lpi);
+    const angle = angleDeg * Math.PI / 180;
+    const ca = Math.cos(angle), sa = Math.sin(angle);
+
+    const cx = w * 0.5, cy = h * 0.5;
     let minRX = Infinity, maxRX = -Infinity, minRY = Infinity, maxRY = -Infinity;
-    const corners = [[-cx,-cy],[w-cx,-cy],[-cx,h-cy],[w-cx,h-cy]];
-    for (const [xc, yc] of corners){
+    for (const [xc, yc] of [[-cx,-cy],[w-cx,-cy],[-cx,h-cy],[w-cx,h-cy]]){
       const xr =  xc*ca + yc*sa;
       const yr = -xc*sa + yc*ca;
-      if (xr < minRX) minRX = xr; if (xr > maxRX) maxRX = xr;
-      if (yr < minRY) minRY = yr; if (yr > maxRY) maxRY = yr;
+      if (xr < minRX) minRX = xr;
+      if (xr > maxRX) maxRX = xr;
+      if (yr < minRY) minRY = yr;
+      if (yr > maxRY) maxRY = yr;
     }
-    const cellsX = Math.ceil((maxRX - minRX) / cell) + 2;
-    const cellsY = Math.ceil((maxRY - minRY) / cell) + 2;
-    const oX = -minRX, oY = -minRY;
+    const nx = Math.ceil(-minRX / cell - 0.5);
+    const ny = Math.ceil(-minRY / cell - 0.5);
+    const oX = (nx + 0.5) * cell;
+    const oY = (ny + 0.5) * cell;
+    const cellsX = Math.ceil((maxRX + oX) / cell) + 2;
+    const cellsY = Math.ceil((maxRY + oY) / cell) + 2;
+    const totalCells = cellsX * cellsY;
 
-    const sums   = new Float64Array(cellsX * cellsY);
-    const counts = new Uint32Array(cellsX * cellsY);
+    const sums   = new Float64Array(totalCells);
+    const counts = new Uint32Array(totalCells);
     for (let y = 0; y < h; y++){
       const yc = y - cy;
       for (let x = 0; x < w; x++){
@@ -870,79 +1625,63 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
         const yr = -xc*sa + yc*ca + oY;
         const ix = (xr / cell) | 0;
         const iy = (yr / cell) | 0;
-        const idx = iy*cellsX + ix;
+        if (ix < 0 || iy < 0 || ix >= cellsX || iy >= cellsY) continue;
+        const idx = iy * cellsX + ix;
         sums[idx]   += tone[y*w + x];
         counts[idx] += 1;
       }
     }
 
     const maxR = cell * 0.72;
-    const minR = (minDotMm / INCH_MM) * targetDpi;
-    const alpha = new Uint8ClampedArray(N);
+    const minR = Math.max(0, (minDotMm / INCH_MM) * targetDpi);
+    const radii = new Float32Array(totalCells);
+    for (let i = 0; i < totalCells; i++){
+      if (counts[i] === 0) continue;
+      const avg = sums[i] / counts[i];
+      let r = Math.sqrt(avg) * maxR;
+      if (r < minR) r = 0;
+      radii[i] = r;
+    }
 
+    const alpha = new Uint8ClampedArray(N);
+    const AA = !!softEdges;
     for (let y = 0; y < h; y++){
       const yc = y - cy;
       for (let x = 0; x < w; x++){
-        const g = gray[y*w + x];
-        if (g >= whiteCut){ alpha[y*w+x] = 255; continue; }
-        if (g <= blackCut){ alpha[y*w+x] = 0;   continue; }
+        const o = y * w + x;
+        const t = tone[o];
+        // Early-exits: el semitono solo opera en la ZONA DE TRANSICIÓN.
+        // Fuera de ella el alpha es sólido o transparente directamente.
+        if (t >= 0.999){ alpha[o] = 255; continue; }
+        if (t <= 0.001){ alpha[o] = 0;   continue; }
+
         const xc = x - cx;
         const xr =  xc*ca + yc*sa + oX;
         const yr = -xc*sa + yc*ca + oY;
         const ix = (xr / cell) | 0;
         const iy = (yr / cell) | 0;
-        const idx = iy*cellsX + ix;
-        const cnt = counts[idx];
-        if (cnt === 0) continue;
-        const avgTone = sums[idx] / cnt;
-        let r = Math.sqrt(avgTone) * maxR;
-        if (r < minR) continue;
+        if (ix < 0 || iy < 0 || ix >= cellsX || iy >= cellsY) continue;
+        const idx = iy * cellsX + ix;
+
+        const r = radii[idx];
+        if (r <= 0) continue;
+
         const xrc = (ix + 0.5) * cell;
         const yrc = (iy + 0.5) * cell;
         const dx = xr - xrc, dy = yr - yrc;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist <= r) alpha[y*w+x] = 255;
+
+        if (AA){
+          const t2 = r - dist + 0.5;
+          if (t2 >= 1) alpha[o] = 255;
+          else if (t2 > 0) alpha[o] = (t2 * 255) | 0;
+        } else {
+          if (dist <= r) alpha[o] = 255;
+        }
       }
     }
 
-    if (softEdges){
-      return boxBlurUint8(alpha, w, h, 0.6);
-    } else {
-      const blurred = boxBlurUint8(alpha, w, h, 0.25);
-      for (let i = 0; i < N; i++) blurred[i] = blurred[i] > 127 ? 255 : 0;
-      return blurred;
-    }
-  }
-  function boxBlurUint8(src, w, h, fracRadius){
-    const radius = Math.max(0, fracRadius);
-    if (radius <= 0.001) return src;
-    const out = box3x3Blend(src, w, h, Math.min(1, radius));
-    if (radius > 1){
-      let cur = out;
-      const extra = Math.floor(radius - 1);
-      for (let i = 0; i < extra; i++) cur = box3x3Blend(cur, w, h, 1);
-      return cur;
-    }
-    return out;
-  }
-  function box3x3Blend(src, w, h, mix){
-    const out = new Uint8ClampedArray(src.length);
-    const inv = 1 - mix;
-    for (let y = 0; y < h; y++){
-      const ym = y > 0 ? y - 1 : y;
-      const yp = y < h - 1 ? y + 1 : y;
-      for (let x = 0; x < w; x++){
-        const xm = x > 0 ? x - 1 : x;
-        const xp = x < w - 1 ? x + 1 : x;
-        const sum = (
-          src[ym*w+xm] + src[ym*w+x] + src[ym*w+xp] +
-          src[ y*w+xm] + src[ y*w+x] + src[ y*w+xp] +
-          src[yp*w+xm] + src[yp*w+x] + src[yp*w+xp]
-        );
-        out[y*w+x] = src[y*w+x] * inv + (sum / 9) * mix;
-      }
-    }
-    return out;
+    return alpha;
   }
 
   // ==================================================================
@@ -969,6 +1708,9 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 
     // 1) Resize a tamaño de trabajo
     const work = highQualityResize(S.sourceCanvas, targetW, targetH);
+    // Guardar referencia para el gotero (color leído desde el canvas tras resize
+    // pero ANTES de ajustes tonales: así el usuario elige el color "real").
+    S.workingCanvas = work;
 
     // 2) Pintar canvas "antes" con el original puro (sin ajustes)
     const beforeCv = $('before');
@@ -977,7 +1719,8 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
     }
     beforeCv.getContext('2d').drawImage(work, 0, 0);
 
-    // 3) Pixeles + ajustes tonales
+    // 3) Pixeles + ajustes tonales (brillo/contraste/nitidez aplican SIEMPRE,
+    //    sea cual sea el modo de separación).
     const wctx = work.getContext('2d');
     let imgData = wctx.getImageData(0, 0, work.width, work.height);
     let data = imgData.data;
@@ -987,44 +1730,82 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 
     const N = work.width * work.height;
 
-    // 4) Alpha base + halftone
+    // 4) Alpha base = alpha original del arte
     const baseAlpha = new Uint8ClampedArray(N);
     for (let i = 0; i < N; i++) baseAlpha[i] = data[i*4 + 3];
 
-    let halftoneAlpha = null;
+    // 5) Calcular TONO (0..1) + ALPHA del screen, SOLO si el semitono
+    //    está ACTIVADO. Sin halftone, el alpha original pasa intacto en
+    //    cualquier modo: cambiar de modo no destruye la imagen, solo
+    //    define CÓMO se hará la separación cuando se active el semitono.
+    //
+    //   MODO LUMINANCIA (prenda negra):
+    //     tono = (luminancia − blackCut) / (whiteCut − blackCut)
+    //     0 = oscuro → transparente (lo cubre la prenda negra)
+    //     1 = claro  → tinta sólida
+    //
+    //   MODO COLOR (prenda de color):
+    //     tono = (Δ_OKLab(pixel, prenda) − tol) / feather
+    //     0 = pixel idéntico a la prenda → transparente
+    //     1 = pixel muy distinto         → tinta sólida
+    //     intermedio = zona de transición → AQUÍ aparece el semitono
+    //   Calculamos el tono SIEMPRE (también sin halftone) porque la pestaña
+    //   "Zonas" lo necesita para pintar el heatmap UX. Computar el tono es
+    //   barato (~unos pocos ms) y el screen AM solo se invoca si halftone
+    //   está activado.
+    const isColorMode = p.separationMode === 'color' && p.garmentLab;
+    const tone = isColorMode
+      ? toneFromColorDistance(
+          data, work.width, work.height,
+          p.garmentLab, p.colorTol, p.colorFeather,
+          p.colorChroma, p.preserveLuma, p.gamma,
+        )
+      : toneFromLuminance(
+          data, work.width, work.height,
+          p.blackCut, p.whiteCut, p.gamma,
+        );
+    let screenAlpha = null;
     if (p.halftoneOn){
-      const gray = toLuminance(data, work.width, work.height);
-      halftoneAlpha = makeHalftoneAlpha(gray, work.width, work.height, p);
+      screenAlpha = makeHalftoneAlpha(tone, work.width, work.height, p);
     }
 
-    // 5) Composición final
+    // 6) Composición final: combinar alpha original con el alpha del screen.
+    //    Tomamos el mínimo para que ni el original ni el screen impongan
+    //    pixels donde el otro decidió transparencia. Si no hay screen,
+    //    el alpha queda intacto.
     const finalAlpha = new Uint8ClampedArray(N);
     for (let i = 0; i < N; i++){
       let a = baseAlpha[i];
-      if (halftoneAlpha && halftoneAlpha[i] < a) a = halftoneAlpha[i];
+      if (screenAlpha && screenAlpha[i] < a) a = screenAlpha[i];
       finalAlpha[i] = a;
       data[i*4 + 3] = a;
     }
 
-    // Guardamos los datos para repintar entre modos sin reprocesar
+    // Guardamos los datos para repintar entre modos sin reprocesar.
+    // `tone` se guarda para que la pestaña Zonas pinte el heatmap UX.
     S.lastResult = {
       w: work.width, h: work.height,
       dpi: p.targetDpi,
       colorData: new Uint8ClampedArray(data),
       alphaArray: finalAlpha,
+      tone: tone,
       fastMode: p.fastMode,
       halftoneOn: p.halftoneOn,
     };
 
     paintResultCanvas();
+    // Si la vista actual es Máscara o Zonas, repintarla con los nuevos datos
+    if (S.viewMode === 'mask')  paintMaskCanvas();
+    if (S.viewMode === 'zones') paintZonesCanvas();
 
     $('viewer').classList.add('has-image');
     if (S.firstResult){ S.firstResult = false; fitToView(); } else { applyTransform(); updateHud(); }
     enableDownload();
 
     const mode = p.halftoneOn ? 'semitono' : 'ajustes';
+    const sep = p.separationMode === 'color' ? `color (${S.garmentColor.hex})` : 'luminancia';
     const tag = p.fastMode ? ` (vista rápida ${work.width}×${work.height})` : '';
-    setStatus(`Actualizado en ${((performance.now()-t0)|0)} ms · ${mode}${tag}`);
+    setStatus(`Actualizado en ${((performance.now()-t0)|0)} ms · ${sep} · ${mode}${tag}`);
   }
 
   // Repinta el canvas visible con el resultado procesado en color.
@@ -1205,6 +1986,28 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
   viewer.addEventListener('mousedown', (e) => {
     if (!viewer.classList.contains('has-image')) return;
     if (e.button !== 0 && e.button !== 1) return;
+    // Si el gotero está activo, este clic SOLO toma color y consume el evento.
+    if (S.pickingGarment && e.button === 0){
+      e.preventDefault();
+      const rgb = sampleColorAtClient(e.clientX, e.clientY);
+      if (rgb){
+        const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+        // Tomar color con gotero implica que el usuario quiere un color custom
+        S.garmentPreset = 'custom';
+        applyGarmentPreset('custom');
+        setGarmentColorFromHex(hex);
+        // Mostrar swatch del color tomado
+        const pp = $('pickedPreview');
+        $('ppChip').style.background = hex;
+        $('ppLabel').textContent = `Color tomado: ${hex.toUpperCase()}`;
+        pp.style.display = 'inline-flex';
+        setStatus(`Color tomado: ${hex.toUpperCase()}`, 'ok');
+      } else {
+        setStatus('No se pudo leer ese punto. Probá otra zona de la imagen.', 'err');
+      }
+      setPickingGarment(false);
+      return;
+    }
     e.preventDefault();
     dragging = true;
     dragStart = { x: e.clientX - view.x, y: e.clientY - view.y };
@@ -1225,6 +2028,11 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 
   // Teclado
   document.addEventListener('keydown', (e) => {
+    // Esc cancela el gotero aunque el viewer no tenga imagen
+    if (e.key === 'Escape' && S.pickingGarment){
+      setPickingGarment(false);
+      return;
+    }
     if (!viewer.classList.contains('has-image')) return;
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -1238,7 +2046,12 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
       else if (e.key === '1') setZoom100();
       else if (e.key === '+' || e.key === '=') zoomBy(1.25);
       else if (e.key === '-') zoomBy(1/1.25);
-      else if (e.key === 'c' || e.key === 'C') $('vt_checker').click();
+      else if (e.key === 'c' || e.key === 'C'){
+        // Recorre checker → garment → black → white → checker
+        const order = ['checker','garment','black','white'];
+        const i = order.indexOf(S.previewBg);
+        setPreviewBg(order[(i+1) % order.length]);
+      }
       else if (e.key === 'o' || e.key === 'O') setViewMode(S.viewMode === 'original' ? 'result' : 'original');
       else if (e.key === 'r' || e.key === 'R') setViewMode('result');
     }
@@ -1249,24 +2062,228 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
   $('vt_zoom_out').addEventListener('click', () => zoomBy(1/1.25));
   $('vt_fit').addEventListener('click',      () => fitToView());
   $('vt_100').addEventListener('click',      () => setZoom100());
-  $('vt_checker').addEventListener('click', () => {
-    viewer.classList.toggle('show-checker');
-    $('vt_checker').classList.toggle('active', viewer.classList.contains('show-checker'));
+  // ==================================================================
+  //   FONDO DEL PREVIEW (no afecta procesamiento ni alpha real)
+  //
+  //   Importante: el "fondo del preview" SOLO cambia lo que se pinta
+  //   detrás del canvas resultado para que el ojo evalúe el arte. El
+  //   canvas #result mantiene su alpha real (los pixels transparentes
+  //   siguen siendo transparentes), y el PNG exportado no incluye
+  //   este fondo. El checker representa transparencia siguiendo la
+  //   convención de Photoshop/Figma/Illustrator.
+  // ==================================================================
+  const PREVIEW_BG = {
+    checker: '#ffffff',  // color base bajo el overlay de cuadros (no se ve)
+    garment: null,       // dinámico: usa el color de prenda actual
+    black:   '#000000',
+    white:   '#ffffff',
+  };
+
+  function setPreviewBg(mode){
+    if (!(mode in PREVIEW_BG)) mode = 'checker';
+    S.previewBg = mode;
+    const isChecker = mode === 'checker';
+    viewer.classList.toggle('show-checker', isChecker);
+    // En modo 'garment' usamos el hex del color de prenda actual; en cualquier
+    // otro caso, el color de la tabla. El canvas resultado mantiene su alpha
+    // real; este fondo solo se pinta por detrás (no se exporta).
+    const colorHex = (mode === 'garment') ? S.garmentColor.hex : PREVIEW_BG[mode];
+    document.documentElement.style.setProperty('--preview-bg', colorHex);
+    document.querySelectorAll('.bg-opt').forEach((b) => {
+      b.classList.toggle('active', b.dataset.bg === mode);
+    });
+  }
+
+  document.querySelectorAll('.bg-opt').forEach((b) => {
+    b.addEventListener('click', () => setPreviewBg(b.dataset.bg));
   });
 
   // ==================================================================
-  //   TABS · Resultado / Original
+  //   MODO DE SEPARACIÓN (luminancia ↔ color)
   // ==================================================================
+  //   Cambia qué bloque de controles se ve. NO toca pixeles ni alpha:
+  //   solo determina qué función `toneFrom*` usa runProcess para construir
+  //   el tono que alimenta al semitono.
+  function setSeparationMode(mode){
+    if (!['luminance','color'].includes(mode)) mode = 'luminance';
+    S.separationMode = mode;
+    $('lum-mode-block').classList.toggle('hidden', mode !== 'luminance');
+    $('color-mode-block').classList.toggle('hidden', mode !== 'color');
+    document.querySelectorAll('#modeToggle .mode-btn').forEach((b) => {
+      const active = b.dataset.mode === mode;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    if (S.sourceCanvas) scheduleProcess();
+  }
+
+  // En el toggle avanzado, cambiar modo manualmente equivale a pasar a
+  // preset "custom" (el usuario está afinando a mano).
+  document.querySelectorAll('#modeToggle .mode-btn').forEach((b) => {
+    b.addEventListener('click', () => {
+      setSeparationMode(b.dataset.mode);
+      S.garmentPreset = 'custom';
+      document.querySelectorAll('#garmentTypeGrid .g-type').forEach((x) => {
+        x.classList.toggle('active', x.dataset.preset === 'custom');
+      });
+    });
+  });
+
+  // ==================================================================
+  //   COLOR DE PRENDA (picker + hex + presets + gotero)
+  // ==================================================================
+  //   El color se almacena en S.garmentColor con su forma OKLab ya
+  //   calculada, así runProcess no convierte el mismo color en cada frame.
+  function hexToRgb(hex){
+    const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(hex || '');
+    if (!m) return null;
+    let h = m[1];
+    if (h.length === 3) h = h.split('').map(c => c+c).join('');
+    return {
+      r: parseInt(h.slice(0,2), 16),
+      g: parseInt(h.slice(2,4), 16),
+      b: parseInt(h.slice(4,6), 16),
+    };
+  }
+  function rgbToHex(r, g, b){
+    const h = (n) => n.toString(16).padStart(2, '0');
+    return '#' + h(r) + h(g) + h(b);
+  }
+  function setGarmentColorFromHex(hex, opts){
+    const rgb = hexToRgb(hex);
+    if (!rgb) return false;
+    const normalized = rgbToHex(rgb.r, rgb.g, rgb.b).toUpperCase();
+    S.garmentColor.r = rgb.r;
+    S.garmentColor.g = rgb.g;
+    S.garmentColor.b = rgb.b;
+    S.garmentColor.hex = normalized;
+    S.garmentColor.lab = srgbToOklab(rgb.r, rgb.g, rgb.b);
+    if (!opts || !opts.skipPicker) $('garment_picker').value = normalized.toLowerCase();
+    if (!opts || !opts.skipHex)    $('garment_hex').value = normalized;
+    document.documentElement.style.setProperty('--garment-color', normalized);
+    if (S.previewBg === 'garment'){
+      document.documentElement.style.setProperty('--preview-bg', normalized);
+    }
+    // Sincronizar el preset de tipo: si el hex coincide con uno, marcarlo;
+    // si no, pasar a "custom" para reflejar que es un color afinado a mano.
+    let matchedPreset = null;
+    for (const [name, p] of Object.entries(GARMENT_PRESETS)){
+      if (!p.hex) continue;
+      if (p.hex.toLowerCase() === normalized.toLowerCase()){ matchedPreset = name; break; }
+    }
+    if (matchedPreset){
+      S.garmentPreset = matchedPreset;
+    } else if (S.garmentPreset !== 'custom' && !opts?.keepPreset){
+      S.garmentPreset = 'custom';
+    }
+    document.querySelectorAll('#garmentTypeGrid .g-type').forEach((b) => {
+      b.classList.toggle('active', b.dataset.preset === S.garmentPreset);
+    });
+    if ((!opts || !opts.skipReprocess) && S.separationMode === 'color' && S.sourceCanvas){
+      scheduleProcess();
+    }
+    return true;
+  }
+  // Inicializar variable CSS para el color de prenda
+  document.documentElement.style.setProperty('--garment-color', S.garmentColor.hex);
+
+  $('garment_picker').addEventListener('input', (e) => {
+    setGarmentColorFromHex(e.target.value, { skipPicker: true });
+  });
+  $('garment_hex').addEventListener('input', (e) => {
+    let v = e.target.value.trim();
+    if (v && !v.startsWith('#')) v = '#' + v;
+    setGarmentColorFromHex(v, { skipHex: true });
+  });
+  $('garment_hex').addEventListener('blur', () => {
+    $('garment_hex').value = S.garmentColor.hex;
+  });
+  // (Los antiguos .g-preset fueron reemplazados por .g-type — los presets
+  //  de tipo de prenda. Su handler está más arriba.)
+
+  // Sliders de modo color → triggear reproceso (los live-labels ya están)
+  ['color_tol','color_feather','color_chroma','preserve_luma'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      if (S.separationMode === 'color' && S.sourceCanvas) scheduleProcess();
+    });
+  });
+
+  // ==================================================================
+  //   EYEDROPPER (gotero): toma el color directamente de la imagen
+  // ==================================================================
+  //   Activa un modo en el que el siguiente clic sobre el viewer lee el
+  //   pixel del workingCanvas (canvas redimensionado a target, sin tonal)
+  //   y lo establece como color de prenda.
+  function setPickingGarment(on){
+    S.pickingGarment = !!on;
+    viewer.classList.toggle('picking', S.pickingGarment);
+    $('btn-pick-garment').classList.toggle('active', S.pickingGarment);
+  }
+  $('btn-pick-garment').addEventListener('click', () => {
+    if (!S.sourceCanvas){
+      setStatus('Carga primero una imagen para tomar color.', 'err');
+      return;
+    }
+    setPickingGarment(!S.pickingGarment);
+  });
+  function sampleColorAtClient(clientX, clientY){
+    if (!S.workingCanvas) return null;
+    const rect = viewer.getBoundingClientRect();
+    // Coordenadas del click en el stage (mismo sistema que el canvas #result)
+    const vx = clientX - rect.left;
+    const vy = clientY - rect.top;
+    const stage = $('stage');
+    const sRect = stage.getBoundingClientRect();
+    const stageX = clientX - sRect.left;
+    const stageY = clientY - sRect.top;
+    const result = $('result');
+    if (!result.width || !result.height) return null;
+    // Stage está en coords del resultCanvas; mapear a coords de workingCanvas
+    const sx = (stageX / result.width)  * S.workingCanvas.width;
+    const sy = (stageY / result.height) * S.workingCanvas.height;
+    if (sx < 0 || sy < 0 || sx >= S.workingCanvas.width || sy >= S.workingCanvas.height) return null;
+    // Muestrear un pequeño bloque 5x5 para reducir ruido
+    const ctx = S.workingCanvas.getContext('2d');
+    const x0 = Math.max(0, Math.floor(sx) - 2);
+    const y0 = Math.max(0, Math.floor(sy) - 2);
+    const w = Math.min(5, S.workingCanvas.width  - x0);
+    const h = Math.min(5, S.workingCanvas.height - y0);
+    const data = ctx.getImageData(x0, y0, w, h).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < data.length; i += 4){
+      if (data[i+3] < 4) continue;
+      r += data[i]; g += data[i+1]; b += data[i+2]; n++;
+    }
+    if (!n) return null;
+    return { r: (r/n)|0, g: (g/n)|0, b: (b/n)|0 };
+  }
+
+  // ==================================================================
+  //   TABS · Resultado / Original / Máscara / Zonas
+  // ==================================================================
+  //   · Resultado: imagen con la transparencia ya aplicada (lo que se exporta).
+  //   · Original: imagen de entrada sin separación.
+  //   · Máscara: canal alpha como blanco/negro (blanco = imprime, negro = invisible).
+  //   · Zonas: heatmap visual (rojo = eliminado, naranja = semitono, verde = sólido).
+  //     SOLO UX. NO se exporta — el PNG sigue conservando transparencia real.
   function setViewMode(mode){
-    if (!['result','original'].includes(mode)) mode = 'result';
+    if (!['result','original','mask','zones'].includes(mode)) mode = 'result';
     S.viewMode = mode;
     viewer.classList.toggle('view-original', mode === 'original');
+    viewer.classList.toggle('view-mask',     mode === 'mask');
+    viewer.classList.toggle('view-zones',    mode === 'zones');
     document.querySelectorAll('.vtab').forEach(t => {
       t.classList.toggle('active', t.dataset.view === mode);
     });
-    paintResultCanvas();
-    if (mode === 'original'){
-      repaintBeforeCanvas();
+    if (mode === 'result' || mode === 'original'){
+      paintResultCanvas();
+      if (mode === 'original') repaintBeforeCanvas();
+    } else if (mode === 'mask'){
+      paintMaskCanvas();
+    } else if (mode === 'zones'){
+      paintZonesCanvas();
     }
   }
 
@@ -1284,6 +2301,58 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(S.sourceCanvas, 0, 0, w, h);
   }
+
+  // Máscara: pinta el alpha como blanco/negro. Útil para validar bordes.
+  function paintMaskCanvas(){
+    const r = S.lastResult;
+    if (!r) return;
+    const cv = $('mask');
+    if (cv.width !== r.w || cv.height !== r.h){ cv.width = r.w; cv.height = r.h; }
+    const ctx = cv.getContext('2d');
+    const img = ctx.createImageData(r.w, r.h);
+    const data = img.data;
+    const N = r.w * r.h;
+    for (let i = 0; i < N; i++){
+      const a = r.alphaArray[i];
+      const o = i * 4;
+      data[o] = a; data[o+1] = a; data[o+2] = a; data[o+3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  // Zonas: heatmap rojo/naranja/verde sobre el resultado. NO se exporta;
+  // solo le da al impresor un mapa visual de qué está pasando en cada zona.
+  //   tone ≤ 0  → ROJO   (se elimina, alpha 0)
+  //   0 < tone < 1 → NARANJA (zona donde caen los puntos del semitono)
+  //   tone ≥ 1  → VERDE  (tinta sólida, alpha 255)
+  function paintZonesCanvas(){
+    const r = S.lastResult;
+    if (!r || !r.tone) return;
+    const cv = $('zones');
+    if (cv.width !== r.w || cv.height !== r.h){ cv.width = r.w; cv.height = r.h; }
+    const ctx = cv.getContext('2d');
+    const img = ctx.createImageData(r.w, r.h);
+    const data = img.data;
+    const tone = r.tone;
+    const N = r.w * r.h;
+    for (let i = 0; i < N; i++){
+      const t = tone[i];
+      const o = i * 4;
+      if (t <= 0.005){
+        // ROJO — pixel que se elimina
+        data[o]=255; data[o+1]=70; data[o+2]=70; data[o+3]=235;
+      } else if (t >= 0.995){
+        // VERDE — pixel sólido
+        data[o]=70; data[o+1]=200; data[o+2]=120; data[o+3]=235;
+      } else {
+        // NARANJA — zona del semitono. Saturación proporcional al tono
+        // (más oscuro = más cerca del rojo, más claro = más cerca del verde)
+        data[o]=255; data[o+1]=Math.round(120 + t*80); data[o+2]=40; data[o+3]=220;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   document.querySelectorAll('.vtab').forEach(tab => {
     tab.addEventListener('click', () => setViewMode(tab.dataset.view));
   });
@@ -1308,87 +2377,15 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
   });
 
   // ==================================================================
-  //   Color de prenda · swatches + custom picker
+  //   ESTADO INICIAL
   // ==================================================================
-  const SHIRT_PRESETS = [
-    { c: '#000000', name: 'Negro' },
-    { c: '#1c1c1c', name: 'Negro mate' },
-    { c: '#2e2e2e', name: 'Carbón' },
-    { c: '#3b3b3b', name: 'Grafito' },
-    { c: '#5a5a5a', name: 'Gris oscuro' },
-    { c: '#7d7d7d', name: 'Heather' },
-    { c: '#192238', name: 'Navy' },
-    { c: '#0e3d8a', name: 'Azul rey' },
-    { c: '#1f5340', name: 'Verde botella' },
-    { c: '#3a4023', name: 'Olivo militar' },
-    { c: '#6b2024', name: 'Granate' },
-    { c: '#b32219', name: 'Rojo' },
-    { c: '#c75a1d', name: 'Naranja' },
-    { c: '#d9b310', name: 'Mostaza' },
-    { c: '#5e3a8e', name: 'Púrpura' },
-    { c: '#d96a9e', name: 'Rosa' },
-    { c: '#a87642', name: 'Marrón' },
-    { c: '#c8c8c8', name: 'Gris claro' },
-    { c: '#e6dfcf', name: 'Crema' },
-    { c: '#ffffff', name: 'Blanco' },
-  ];
-
-  function buildShirtSwatches(){
-    const container = $('shirtSwatches');
-    container.innerHTML = '';
-    SHIRT_PRESETS.forEach(({ c, name }) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'shirt-sw';
-      btn.style.background = c;
-      btn.dataset.color = c;
-      btn.title = name;
-      btn.addEventListener('click', (e) => { e.stopPropagation(); setShirtColor(c); });
-      container.appendChild(btn);
-    });
-  }
-
-  function setShirtColor(hex){
-    const norm = (hex || '#000000').toLowerCase();
-    document.documentElement.style.setProperty('--shirt-color', norm);
-    $('shirtHex').value    = norm;
-    $('shirtPicker').value = /^#[0-9a-f]{6}$/i.test(norm) ? norm : '#000000';
-    document.querySelectorAll('.shirt-sw').forEach((b) => {
-      b.classList.toggle('active', b.dataset.color.toLowerCase() === norm);
-    });
-  }
-
-  $('vt_shirt').addEventListener('click', (e) => {
-    e.stopPropagation();
-    $('shirtPopup').classList.toggle('on');
-    $('vt_shirt').classList.toggle('active', $('shirtPopup').classList.contains('on'));
-  });
-
-  // Cerrar popup al hacer click fuera
-  document.addEventListener('click', (e) => {
-    const pop = $('shirtPopup');
-    if (!pop.classList.contains('on')) return;
-    if (pop.contains(e.target) || e.target === $('vt_shirt')) return;
-    pop.classList.remove('on');
-    $('vt_shirt').classList.remove('active');
-  });
-
-  $('shirtPicker').addEventListener('input', () => setShirtColor($('shirtPicker').value));
-  $('shirtHex').addEventListener('change', () => {
-    let v = $('shirtHex').value.trim();
-    if (/^[0-9a-f]{6}$/i.test(v)) v = '#' + v;
-    if (/^#[0-9a-f]{6}$/i.test(v)){
-      setShirtColor(v.toLowerCase());
-    } else if (/^#?[0-9a-f]{3}$/i.test(v)){
-      const e = v.replace(/^#/, '');
-      setShirtColor('#' + e[0]+e[0]+e[1]+e[1]+e[2]+e[2]);
-    } else {
-      setStatus('Formato no reconocido. Usa #RRGGBB.', 'err');
-    }
-  });
-
-  buildShirtSwatches();
-  setShirtColor('#000000');
+  //   1) Aplicar preset "Negra" → siembra modo, color, sliders simples y
+  //      sus correspondientes avanzados de forma coherente.
+  //   2) setPreviewBg('checker') al final → el primer encuadre muestra
+  //      transparencia (checker) en lugar del color de prenda. El usuario
+  //      cambia a vista de prenda al hacer clic en un preset.
+  applyGarmentPreset('negra');
+  setPreviewBg('checker');
 
 })();
 </script>
