@@ -9,6 +9,13 @@
   --bg:#0e0e12; --card:#181822; --line:#2a2a38; --text:#ececf2;
   --muted:#8b8b9c; --cyan:#22e0d3; --pink:#ff3ea5; --ok:#58e389;
   --purple:#7e57ff; --warn:#ffbd55;
+  /* Aliases usados por componentes nuevos: panel opaco para sticky/popovers
+     y border genérico para inputs/botones. Definirlos aquí evita que las
+     reglas de CSS caigan a "transparent" cuando referencian variables
+     inexistentes (eso causaba que el toggle Simple/Avanzado dejara pasar
+     el contenido por detrás). */
+  --panel:#1f1f2c;
+  --border:#2a2a38;
 }
 *{box-sizing:border-box}
 html,body{
@@ -116,12 +123,17 @@ small{color:#888;line-height:1.5;display:block;margin-top:12px;font-size:12px}
 body[data-ux="simple"]   .advanced-only{display:none !important}
 body[data-ux="advanced"] .simple-only{display:none !important}
 
+/* Toggle Simple/Avanzado: sticky en la parte superior del sidebar.
+   IMPORTANTE: el fondo es 100% opaco para que las cards de abajo no
+   se vean transparentar mientras se hace scroll. El "halo" de 6px en
+   color de fondo (segundo box-shadow) tapa la fila de pixeles que el
+   scrollbar deja a los lados, evitando que el contenido asome. */
 .ux-mode-switch{
   display:grid;grid-template-columns:1fr 1fr;gap:4px;
-  background:var(--panel);border:1px solid var(--border);
+  background:var(--panel);border:1px solid var(--line);
   border-radius:12px;padding:4px;margin-bottom:14px;
-  position:sticky;top:0;z-index:5;
-  box-shadow:0 4px 12px rgba(0,0,0,.25);
+  position:sticky;top:0;z-index:10;
+  box-shadow:0 6px 14px rgba(0,0,0,.55), 0 0 0 6px var(--bg);
 }
 .ux-mode-btn{
   display:flex;align-items:center;justify-content:center;gap:6px;
