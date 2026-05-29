@@ -1,14 +1,36 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
+<script>
+  // Auto-detect iframe embedding (e.g. when the app is pinned to a canvas
+  // or shown inside an external page) and switch to a wide horizontal
+  // layout with the preview on the left. See the `html.embed` CSS rules.
+  try { if (window.self !== window.top) document.documentElement.classList.add('embed'); }
+  catch(_) { document.documentElement.classList.add('embed'); }
+</script>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Semitonos DTF · Separación + removedor de fondo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0e0e12" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>DTF Halftone · Separation + background remover</title>
+<script>window.APP_BUILD = 'b17-' + Date.now();</script>
 <style>
 :root{
+  /* Brand palette aligned with DTFmasters.com:
+     - magenta/pink for the secondary CTA (matches the "FREE Gangsheet"
+       banner pink)
+     - brand blue for tertiary accents (matches the DTF Masters logo
+       blue, replaces the old generic purple)
+     - vibrant green for success states (matches the green "Build my
+       UVDTF Sheet" CTA on dtfmasters.com)
+     The dark editor base is preserved so high-precision pixel work
+     stays comfortable. */
   --bg:#0e0e12; --card:#181822; --line:#2a2a38; --text:#ececf2;
-  --muted:#8b8b9c; --cyan:#22e0d3; --pink:#ff3ea5; --ok:#58e389;
-  --purple:#7e57ff; --warn:#ffbd55;
+  --muted:#8b8b9c; --cyan:#22e0d3; --pink:#ec2891; --ok:#22c55e;
+  --purple:#3b82f6; --warn:#ffbd55;
+  --blue:#3b82f6; --magenta:#ec2891;
   /* Aliases usados por componentes nuevos: panel opaco para sticky/popovers
      y border genérico para inputs/botones. Definirlos aquí evita que las
      reglas de CSS caigan a "transparent" cuando referencian variables
@@ -30,6 +52,20 @@ body{padding:24px;box-sizing:border-box}
   max-width:1320px;height:100%;margin:0 auto;
   display:grid;grid-template-columns:380px 1fr;gap:24px;
 }
+/* Until the user uploads a design, the preview card is hidden and the
+   controls column expands to fill the page. After upload we add
+   .has-image to .wrap and the two-column layout returns. */
+.wrap:not(.has-image){grid-template-columns:minmax(0,1fr);max-width:560px}
+.wrap:not(.has-image) > .card{display:none}
+
+/* Embed / iframe layout — preview on the LEFT (large) and the controls
+   stacked on the RIGHT. Triggered automatically when the app is loaded
+   inside an iframe (see inline script in <head>). Mobile media queries
+   below still take precedence on narrow viewports. */
+html.embed .wrap{max-width:none}
+html.embed .wrap.has-image{grid-template-columns:minmax(0,1fr) 380px}
+html.embed .wrap.has-image > .col-left{order:2}
+html.embed .wrap.has-image > .card{order:1}
 .col-left{
   display:flex;flex-direction:column;gap:18px;
   overflow-y:auto;overflow-x:hidden;
@@ -52,6 +88,12 @@ body{padding:24px;box-sizing:border-box}
 .card h3::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
 label{display:block;margin-top:12px;font-size:12px;color:var(--muted);position:relative}
 label .val{float:right;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.field-warn{
+  margin-top:6px;padding:6px 8px;border-radius:6px;
+  background:rgba(255,189,85,.12);border:1px solid rgba(255,189,85,.35);
+  color:var(--warn,#ffbd55);font-size:11px;line-height:1.35;
+}
+.field-warn[hidden]{display:none}
 input[type=range]{width:100%;-webkit-appearance:none;height:4px;border-radius:4px;
   background:linear-gradient(90deg,#2a2a3a,var(--cyan));outline:none;margin-top:6px}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
@@ -78,6 +120,11 @@ input[type=file]{cursor:pointer}
 .btn.pink{background:linear-gradient(135deg,var(--pink),#c41e7f);color:#1a0010}
 .btn.outline{background:transparent;border:1px solid var(--line);color:var(--text);font-weight:500}
 .btn.outline:hover{background:rgba(255,255,255,.04)}
+/* Cyan-tinted outline variant — gives the Reprocess action a soft brand
+   glow so it reads as related but secondary to the prominent pink
+   "Change design" button next to it. */
+.btn.outline.accent-cyan{border-color:rgba(34,224,211,.45);color:var(--cyan)}
+.btn.outline.accent-cyan:hover{background:rgba(34,224,211,.08);border-color:var(--cyan)}
 .btn.compact{padding:8px 12px;font-size:12px;width:auto;margin-top:0}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer}
@@ -233,23 +280,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 #mask, #zones{position:absolute;top:0;left:0;display:none;}
 #mask{image-rendering:pixelated}
 
-.zones-legend{
-  display:flex;gap:14px;justify-content:center;flex-wrap:wrap;
-  padding:8px 12px;background:rgba(0,0,0,.55);border-radius:8px;
-  font-size:11px;color:#dbe7e4;font-weight:600;
-  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
-  z-index:6;pointer-events:none;display:none;
-  border:1px solid rgba(255,255,255,.08);
-  backdrop-filter:blur(6px);
-}
-.viewer.view-zones .zones-legend{display:flex}
-.zones-legend .swatch{
-  width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:6px;
-  vertical-align:middle;border:1px solid rgba(255,255,255,.2);
-}
-.zones-legend .sw-red   { background:#ff4646 }
-.zones-legend .sw-orange{ background:#ffa032 }
-.zones-legend .sw-green { background:#46c878 }
+/* Old .zones-legend was replaced by .viewer-legend (chip rail).
+   Its swatch classes are no longer rendered. */
 
 /* ==================================================================
    MODE TOGGLE (luminancia vs color)
@@ -588,6 +620,15 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   border:1px solid var(--border);
   animation:fcSlideIn .35s cubic-bezier(.2,1,.3,1);
 }
+.auto-trim-opt{
+  display:flex;align-items:center;gap:8px;
+  margin-top:10px;padding:8px 10px;border-radius:10px;
+  background:rgba(255,255,255,.02);border:1px solid var(--border);
+  font-size:12.5px;color:var(--text-muted,#9aa3b2);cursor:pointer;
+  user-select:none;
+}
+.auto-trim-opt input[type=checkbox]{margin:0;cursor:pointer}
+.auto-trim-opt span{flex:1}
 @keyframes fcSlideIn{
   from{opacity:0;transform:translateY(6px) scale(.97)}
   to{opacity:1;transform:none}
@@ -717,13 +758,373 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 
 @media(max-width:980px){
   html,body{overflow:auto;height:auto}
-  .wrap{grid-template-columns:1fr;height:auto;min-height:calc(100vh - 48px)}
-  .col-left{overflow:visible;padding-right:0;margin-right:0}
-  .wrap > .card{height:80vh}
+  body{padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));
+       padding-left:max(16px,env(safe-area-inset-left));
+       padding-right:max(16px,env(safe-area-inset-right))}
+  .wrap{
+    grid-template-columns:1fr;
+    grid-template-areas:"viewer" "controls";
+    height:auto;min-height:auto;gap:16px;
+  }
+  .col-left{grid-area:controls;overflow:visible;padding-right:0;margin-right:0}
+  .wrap > .card{
+    grid-area:viewer;
+    height:60vh;min-height:340px;max-height:62vh;
+    position:sticky;top:8px;z-index:5;
+    box-shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  /* On mobile the UX toggle isn't sticky inside the controls column —
+     the viewer is the sticky surface, and the toggle scrolls with controls. */
+  .ux-mode-switch{position:static;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+}
+
+/* ==================================================================
+   MOBILE / TOUCH OPTIMIZATIONS (≤640px)
+   ==================================================================
+   Bigger touch targets, iOS-safe inputs, sticky download bar, etc. */
+@media(max-width:640px){
+  body{padding:10px;font-size:14px}
+  .card{padding:14px;border-radius:12px}
+  .wrap{gap:12px}
+  .wrap > .card{height:54vh;min-height:300px;max-height:58vh;top:0}
+
+  /* Bigger buttons — 44px is Apple HIG / Material minimum touch target */
+  .btn{min-height:46px;padding:13px 14px;font-size:14px;border-radius:12px}
+  .btn.compact{min-height:40px;padding:9px 12px;font-size:12px}
+  .btn.icon-only,.fc-actions .btn.icon-only{min-height:40px;width:40px}
+
+  /* Inputs at 16px so iOS Safari doesn't auto-zoom on focus */
+  input[type=number],input[type=text],input[type=file]{
+    font-size:16px;min-height:44px;padding:11px 12px;border-radius:10px;
+  }
+
+  /* Bigger slider thumbs — easier to grab with a finger */
+  input[type=range]{height:6px;margin-top:10px}
+  input[type=range]::-webkit-slider-thumb{width:24px;height:24px}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px}
+
+  /* Garment preset chips: bigger and easier to tap */
+  .garment-type-grid{grid-template-columns:repeat(3,1fr);gap:7px}
+  .g-type{min-height:72px;padding:10px 4px 9px;font-size:11px}
+  .g-chip{width:34px;height:34px}
+
+  /* Garment color row */
+  #garment_picker{width:44px;height:44px}
+  #garment_hex{height:44px;font-size:14px}
+  .g-preset{width:30px;height:30px}
+
+  /* Section titles slightly smaller to save vertical space */
+  .card h2{font-size:14px;margin-bottom:10px}
+  .card h3{margin:12px 0 6px;font-size:10.5px}
+
+  /* Help tooltip → bigger tap target, tooltip appears on tap (handled in JS) */
+  .help{width:20px;height:20px;font-size:11px;margin-left:6px;cursor:pointer}
+
+  /* Mode toggle: bigger */
+  .mode-btn{padding:12px 6px;min-height:54px;font-size:13px}
+
+  /* View tabs: bigger and scrollable horizontally if needed */
+  .view-tabs{margin:0 0 10px 0;padding:0 0 8px 0;overflow-x:auto;
+             scrollbar-width:none;-ms-overflow-style:none}
+  .view-tabs::-webkit-scrollbar{display:none}
+  .vtab{padding:10px 16px;font-size:13px;flex-shrink:0;min-height:42px}
+
+  /* Viewer toolbar buttons: bigger so they're tappable */
+  .viewer-toolbar{padding:5px;gap:3px;top:8px;right:8px}
+  .viewer-toolbar button{width:36px;height:34px;font-size:14px}
+  .viewer-toolbar .zoom-level{min-width:50px;font-size:11px}
+  .bg-opt{width:32px;height:30px}
+  .bg-icon{width:16px;height:16px}
+
+  /* HUD smaller and unobtrusive */
+  .viewer-hud{font-size:10px;padding:5px 8px;bottom:8px;left:8px}
+  .viewer-busy{bottom:8px;right:8px;padding:5px 10px 5px 8px;font-size:10px}
+
+  /* File card */
+  .file-card{grid-template-columns:54px 1fr;gap:10px;padding:9px}
+  .fc-thumb{width:54px;height:54px}
+  .fc-name{font-size:12px}
+  .fc-pill{font-size:10px;padding:2px 6px}
+  .fc-actions .btn{padding:8px 6px;font-size:11px}
+
+  /* Dropzone — slightly more compact on small screens */
+  .dropzone{padding:24px 14px 22px}
+  .dz-icon-wrap{width:48px;height:48px}
+  .dz-title{font-size:14px}
+  .dz-sub{font-size:12px}
+
+  /* UX mode switch buttons: bigger */
+  .ux-mode-btn{padding:12px 10px;font-size:13px;min-height:46px}
+
+  /* Bottom checkboxes / toggle rows */
+  .toggle{padding:4px 0;font-size:13px}
+  .toggle input{width:18px;height:18px;flex-shrink:0}
+  .toggle.strong{padding:12px 14px}
+
+  /* Picked preview swatch */
+  .picked-preview{font-size:12px;padding:8px 10px}
+
+  /* Zones legend: stack on narrow screens */
+}
+
+/* ==================================================================
+   DYNAMIC STEP NUMBERING (1·2·3 in Simple, 1·2·3·4 in Advanced)
+   ==================================================================
+   The card h2 titles no longer hard-code "1 · " / "3 · " / "4 · ".
+   A CSS counter scoped to .col-left auto-numbers every visible card,
+   so when the advanced-only "Image Adjustments" card is hidden
+   (display:none in Simple mode) it skips the counter entirely. */
+.col-left{ counter-reset: stepN; }
+.card.step-card > h2::before{
+  counter-increment: stepN;
+  content: counter(stepN) " · ";
+  color: var(--cyan); font-weight: 700; letter-spacing: .4px;
+}
+
+/* ==================================================================
+   STICKY ACTION BAR (Process Now + Download), always visible
+   ==================================================================
+   Pinned to the bottom of the scrollable controls column once an
+   image is loaded. Removes the need to scroll down to card 4 to
+   re-run processing. The same buttons exist inside card 4 for
+   accessibility, but this strip is the primary CTA. */
+.action-bar{
+  position:sticky; bottom:0; z-index:8;
+  margin:8px -4px -4px; padding:10px 4px 4px;
+  background:linear-gradient(to top, var(--bg) 70%, transparent);
+  display:none; flex-direction:column; gap:8px;
+}
+.wrap.has-image .action-bar{ display:flex; }
+.action-bar .btn{ margin-top:0 }
+
+/* When the sticky CTA is visible, hide the duplicate buttons that
+   still live inside card 4. The originals stay in the DOM (so all
+   handlers and state mirroring keep working) but are visually
+   hidden — the sticky bar is the canonical action surface once an
+   image is loaded. */
+.wrap.has-image #card-screen > #btn-process,
+.wrap.has-image #card-screen > #download{ display:none !important }
+
+/* ==================================================================
+   LANGUAGE TOGGLE (top-right, fixed)
+   ================================================================== */
+.lang-toggle{
+  position:fixed; top:14px; right:18px; z-index:30;
+  display:inline-flex; align-items:center; gap:0;
+  background:rgba(15,15,22,.85); border:1px solid var(--border);
+  border-radius:999px; padding:3px; backdrop-filter:blur(10px);
+  font-size:11px; font-weight:700; letter-spacing:.6px;
+  box-shadow:0 4px 14px rgba(0,0,0,.35);
+}
+.lang-toggle button{
+  appearance:none; background:transparent; color:var(--muted);
+  border:0; padding:5px 10px; border-radius:999px;
+  cursor:pointer; transition:all .15s; font:inherit;
+  letter-spacing:inherit;
+}
+.lang-toggle button.active{
+  background:rgba(34,224,211,.18); color:var(--cyan);
+  box-shadow:inset 0 0 0 1px rgba(34,224,211,.4);
+}
+.lang-toggle button:hover:not(.active){ color:var(--text) }
+@media (max-width: 720px){
+  .lang-toggle{ top:10px; right:10px; font-size:10px }
+  .lang-toggle button{ padding:4px 8px }
+}
+.action-bar .btn.primary{
+  position:relative; overflow:hidden;
+}
+.action-bar .btn.primary.dirty::after{
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  box-shadow:0 0 0 0 rgba(34,224,211,.55);
+  animation: ctaPulse 1.6s ease-out infinite;
+  pointer-events:none;
+}
+@keyframes ctaPulse{
+  0%{ box-shadow:0 0 0 0 rgba(34,224,211,.55) }
+  70%{ box-shadow:0 0 0 10px rgba(34,224,211,0) }
+  100%{ box-shadow:0 0 0 0 rgba(34,224,211,0) }
+}
+
+/* ==================================================================
+   SLIDER WORD LABEL + ANCHOR TICKS
+   ==================================================================
+   Adds a small word badge ("None / Light / Moderate / Strong / Max")
+   beside the numeric value, plus subtle tick marks on the track at
+   typical anchor points so the user knows the useful range. */
+.val-word{
+  display:inline-block; margin-left:8px; padding:1px 7px;
+  font-size:10px; font-weight:700; letter-spacing:.4px;
+  text-transform:uppercase; border-radius:999px;
+  background:rgba(34,224,211,.12); color:var(--cyan);
+  border:1px solid rgba(34,224,211,.3);
+  font-variant-numeric:tabular-nums;
+}
+.val-word.muted{
+  background:rgba(255,255,255,.04); color:var(--muted);
+  border-color:var(--border);
+}
+.slider-wrap{ position:relative; }
+.slider-ticks{
+  position:absolute; left:0; right:0; top:14px;
+  height:8px; pointer-events:none; display:flex;
+  justify-content:space-between; padding:0 6px;
+}
+.slider-ticks span{
+  width:1px; height:4px; background:rgba(255,255,255,.18);
+}
+.slider-ticks span.major{ height:6px; background:rgba(34,224,211,.45) }
+
+/* ==================================================================
+   STATUS STRIP (inside viewer card)
+   ==================================================================
+   Bottom-of-card 1-line readout: dimensions, DPI, last process time,
+   model-download progress. Replaces ambiguous silence during the
+   first AI-model download. */
+.status-strip{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin-top:10px; padding:6px 10px; border-radius:8px;
+  background:rgba(255,255,255,.03); border:1px solid var(--line);
+  font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums;
+  min-height:28px;
+}
+.status-strip .dot{
+  width:6px; height:6px; border-radius:50%;
+  background:var(--muted); flex-shrink:0;
+  transition:background .2s;
+}
+.status-strip.ok .dot{ background:var(--ok); box-shadow:0 0 6px var(--ok) }
+.status-strip.busy .dot{ background:var(--cyan); box-shadow:0 0 6px var(--cyan); animation: pulse 1s infinite }
+.status-strip.err .dot{ background:#ff7a8e; box-shadow:0 0 6px #ff7a8e }
+.status-strip .ss-label{ color:var(--text); font-weight:600 }
+.status-strip .ss-sep{ width:1px; height:11px; background:var(--line) }
+.status-strip .ss-prog{
+  flex:1; min-width:80px; height:4px; border-radius:2px;
+  background:rgba(255,255,255,.05); overflow:hidden; display:none;
+  position:relative;
+}
+.status-strip.busy .ss-prog{ display:block }
+.status-strip .ss-prog > i{
+  display:block; height:100%; width:35%;
+  background:linear-gradient(90deg,
+    transparent, var(--cyan), #0ca99b, transparent);
+  animation: ssProgSlide 1.2s linear infinite;
+}
+@keyframes ssProgSlide{
+  0%   { transform: translateX(-100%) }
+  100% { transform: translateX(385%) }
+}
+
+/* ==================================================================
+   VIEWER LEGEND RAIL (floats over the canvas)
+   ==================================================================
+   The Zones legend now lives over the top of the viewer, always
+   readable when that tab is active. The result tab gets a single
+   subtle pill hint. */
+.viewer-legend{
+  position:absolute; top:10px; left:10px; z-index:9;
+  display:none; gap:8px; align-items:center; flex-wrap:wrap;
+  background:rgba(15,15,22,.78); border:1px solid rgba(255,255,255,.08);
+  border-radius:10px; padding:5px 9px; backdrop-filter:blur(10px);
+  font-size:10.5px; color:var(--text); font-weight:600; letter-spacing:.2px;
+  pointer-events:none;
+}
+.viewer.view-zones .viewer-legend{ display:flex }
+.viewer-legend .lg-chip{
+  display:inline-flex; align-items:center; gap:5px;
+}
+.viewer-legend .lg-sw{
+  width:10px; height:10px; border-radius:3px; display:inline-block;
+  border:1px solid rgba(255,255,255,.2);
+}
+
+/* ==================================================================
+   DISABLED CARD — clearer "locked" state
+   ================================================================== */
+.disabled-card{
+  opacity:.32; filter:grayscale(.4);
+  border-style:dashed; background:transparent;
+}
+.disabled-card > h2{ color:var(--muted) }
+
+/* ==================================================================
+   "TRY SAMPLE" affordance on the dropzone
+   ================================================================== */
+.dz-sample{
+  margin-top:6px; padding:0; background:transparent;
+  border:0; color:var(--muted); font-size:11px;
+  cursor:pointer; text-decoration:underline;
+  text-underline-offset:2px; text-decoration-color:rgba(139,139,156,.4);
+  transition:color .15s;
+}
+.dz-sample:hover{ color:var(--cyan); text-decoration-color:var(--cyan) }
+
+/* ==================================================================
+   BEFORE / AFTER WIPE (Result tab)
+   ==================================================================
+   When .wipe is on the viewer, a vertical handle splits the canvas
+   so the left half shows the original (#before) and the right half
+   shows the processed result (#result). The split position is
+   controlled by --wipe (0..1, default .5).
+   We do this purely with CSS clip-path on #before so there's zero
+   re-render cost per drag frame. */
+.viewer.wipe{ cursor:ew-resize }
+.viewer.wipe.has-image #before{
+  display:block !important;
+  clip-path: polygon(0 0, calc(var(--wipe,.5) * 100%) 0, calc(var(--wipe,.5) * 100%) 100%, 0 100%);
+}
+.viewer.wipe .wipe-handle{ display:flex }
+.wipe-handle{
+  position:absolute; top:0; bottom:0;
+  left:calc(var(--wipe,.5) * 100%);
+  width:0; z-index:7; display:none;
+  align-items:center; justify-content:center;
+  pointer-events:none;
+}
+.wipe-handle::before{
+  content:""; position:absolute; top:0; bottom:0;
+  left:-1px; width:2px; background:var(--cyan);
+  box-shadow:0 0 10px rgba(34,224,211,.6);
+}
+.wipe-handle::after{
+  content:"◀ ▶"; position:absolute;
+  background:rgba(15,15,22,.92); color:var(--cyan);
+  font-size:9px; font-weight:700; letter-spacing:1px;
+  padding:5px 8px; border-radius:999px;
+  border:1px solid var(--cyan);
+  white-space:nowrap;
+}
+
+/* Tooltip-on-tap support: when JS adds .show-tip the same tooltip
+   appears via :hover-equivalent rules. Mobile users don't have hover. */
+.help.show-tip::before,
+.help.show-tip::after{display:block}
+.help.show-tip::before{
+  content:"";position:absolute;left:50%;bottom:calc(100% + 3px);
+  transform:translateX(-50%);width:0;height:0;
+  border:5px solid transparent;border-top-color:#1a1a26;z-index:101;
+}
+.help.show-tip::after{
+  content:attr(data-tip);
+  position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+  background:#1a1a26;color:var(--text);padding:8px 10px;
+  border-radius:6px;border:1px solid var(--line);
+  font-size:11px;line-height:1.4;width:220px;white-space:normal;
+  z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.4);text-align:left;
+  font-weight:400;letter-spacing:.2px;pointer-events:none;
 }
 </style>
 </head>
 <body data-ux="simple">
+
+<!-- Language toggle (top-right, fixed). The actual button labels stay
+     literal ("EN" / "ES") in both languages; the i18n system below
+     swaps every translatable string elsewhere. -->
+<div class="lang-toggle" id="langToggle" role="group" aria-label="Language">
+  <button type="button" data-lang="en" class="active">EN</button>
+  <button type="button" data-lang="es">ES</button>
+</div>
+
 <div class="wrap">
 
   <div class="col-left">
@@ -744,13 +1145,13 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       </button>
       <button class="ux-mode-btn" data-ux="advanced" type="button" role="tab" aria-selected="false">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7l-5 5 5 5M3 12h14"/><circle cx="20" cy="12" r="1.5"/></svg>
-        <span>Avanzado</span>
+        <span>Advanced</span>
       </button>
     </div>
 
     <!-- 1. SUBIR + PREPARAR -->
-    <div class="card collapsible" id="card-prep">
-      <h2>1 · Subir y preparar</h2>
+    <div class="card collapsible step-card" id="card-prep">
+      <h2>Upload &amp; Prepare</h2>
 
       <!-- Estado VACÍO: dropzone moderna.
            El <input type="file"> real va hidden y se dispara
@@ -758,7 +1159,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
            El drag&drop a nivel ventana sigue funcionando como
            atajo global (ver listeners en JS). -->
       <div class="dropzone" id="dropzone" tabindex="0" role="button"
-           aria-label="Subir o arrastrar imagen">
+           aria-label="Upload or drag image">
         <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
         <div class="dz-glow" aria-hidden="true"></div>
         <div class="dz-content">
@@ -771,8 +1172,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
           </div>
-          <div class="dz-title">Arrastra tu diseño aquí</div>
-          <div class="dz-sub">o <span class="dz-link">haz clic para subir</span></div>
+          <div class="dz-title">Drop your design here</div>
+          <div class="dz-sub">or <span class="dz-link">click to upload</span></div>
           <div class="dz-formats">
             <span>PNG</span><span>JPG</span><span>WEBP</span>
           </div>
@@ -783,15 +1184,16 @@ body[data-ux="advanced"] .simple-only{display:none !important}
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
               <circle cx="12" cy="8" r=".5" fill="currentColor"/>
             </svg>
-            Ideal: PNG a 300 DPI con transparencia para DTF
+            Ideal: PNG at 300 DPI with transparency for DTF
           </div>
+          <button type="button" class="dz-sample" id="btn-sample">First time? Try with a sample image →</button>
         </div>
 
         <!-- Overlays de estado: solo visibles cuando .dropzone tiene
              la clase .loading o .error respectivamente. -->
         <div class="dz-overlay dz-loading" aria-live="polite">
           <div class="spinner"></div>
-          <span>Analizando imagen…</span>
+          <span>Analyzing image…</span>
         </div>
         <div class="dz-overlay dz-error" role="alert">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
@@ -800,7 +1202,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
             <circle cx="12" cy="16" r=".6" fill="currentColor"/>
           </svg>
-          <span id="dz_error_msg">No se pudo cargar la imagen</span>
+          <span id="dz_error_msg">Could not load image</span>
         </div>
       </div>
 
@@ -811,10 +1213,10 @@ body[data-ux="advanced"] .simple-only{display:none !important}
         <div class="fc-thumb">
           <div class="fc-thumb-check" aria-hidden="true"></div>
           <img id="fcThumbImg" alt="">
-          <div class="fc-alpha-badge" id="fcAlphaBadge" title="Tiene transparencia">α</div>
+          <div class="fc-alpha-badge" id="fcAlphaBadge" title="Has transparency">α</div>
         </div>
         <div class="fc-info">
-          <div class="fc-name" id="fcName">archivo.png</div>
+          <div class="fc-name" id="fcName">file.png</div>
           <div class="fc-meta">
             <span class="fc-pill" id="fcDims">—</span>
             <span class="fc-pill" id="fcCm">—</span>
@@ -823,25 +1225,25 @@ body[data-ux="advanced"] .simple-only{display:none !important}
           </div>
         </div>
         <div class="fc-actions">
-          <button class="btn outline compact" id="btn-change" type="button" title="Subir otra imagen">
+          <button class="btn pink compact" id="btn-change" type="button" title="Upload another image">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2.2"
                  stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            Cambiar
+            Change design
           </button>
-          <button class="btn outline compact" id="btn-reprocess" type="button" title="Volver a procesar con los parámetros actuales">
+          <button class="btn outline compact accent-cyan" id="btn-reprocess" type="button" title="Reprocess with current parameters">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2.2"
                  stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/>
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
-            Reprocesar
+            Reprocess
           </button>
-          <button class="btn icon-only" id="btn-remove" type="button" title="Quitar imagen">
+          <button class="btn icon-only" id="btn-remove" type="button" title="Remove image">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2.2"
                  stroke-linecap="round" stroke-linejoin="round">
@@ -854,41 +1256,46 @@ body[data-ux="advanced"] .simple-only{display:none !important}
         </div>
       </div>
 
+      <!-- Auto-trim is ALWAYS ON. Kept as a hidden checked input so
+           every existing `$('auto_trim').checked` call site keeps
+           returning true without any logic change. -->
+      <input type="checkbox" id="auto_trim" checked hidden>
+
       <div id="prep-block" style="display:none">
-        <!-- Los datos de la imagen original (px, DPI, cm) ahora se muestran
+        <!-- Los datos de la imagen original (px, DPI, in) ahora se muestran
              en la .file-card de arriba. Aquí dejamos solo los CONTROLES de
              tamaño destino y DPI de trabajo. -->
 
-        <h3>Tamaño destino</h3>
+        <h3>Target size</h3>
         <div class="row">
           <div>
-            <label>Ancho (cm) <i class="help" data-tip="Tamaño físico al que se va a imprimir el arte. Se convierte a píxeles usando el DPI de trabajo.">?</i></label>
-            <input type="number" id="new_w_cm" step="0.1" min="0.5" value="32">
+            <label>Width (in) <i class="help" data-tip="Physical size at which the artwork will be printed. Converted to pixels using the working DPI.">?</i></label>
+            <input type="number" id="new_w_cm" step="0.1" min="0.2" value="12.6">
           </div>
           <div>
-            <label>Alto (cm) <i class="help" data-tip="Si la proporción está fijada, se ajusta solo al cambiar el ancho.">?</i></label>
-            <input type="number" id="new_h_cm" step="0.1" min="0.5" value="32">
+            <label>Height (in) <i class="help" data-tip="If aspect ratio is locked, this adjusts automatically when width changes.">?</i></label>
+            <input type="number" id="new_h_cm" step="0.1" min="0.2" value="12.6">
           </div>
         </div>
         <label class="toggle">
           <input type="checkbox" id="lock_ratio" checked>
-          Mantener proporción
+          Lock aspect ratio
         </label>
 
-        <h3>DPI de trabajo</h3>
-        <label>DPI de salida <i class="help" data-tip="Resolución a la que se generará el PNG. 300 dpi es el estándar de impresión DTF. Bajar este valor durante el ajuste acelera el render.">?</i></label>
+        <h3>Working DPI</h3>
+        <label>Output DPI <i class="help" data-tip="Resolution at which the PNG will be generated. 300 dpi is the DTF print standard. Lowering this value during adjustment speeds up rendering.">?</i></label>
         <input type="number" id="target_dpi" value="300" step="1" min="72" max="1200">
 
         <label class="toggle">
           <input type="checkbox" id="fast_mode">
-          <span>Calidad rápida (previsualización)</span>
-          <i class="help" data-tip="Procesa a un máximo de 1200 px del lado mayor para que el tiempo real sea fluido. La descarga siempre se hace a la resolución completa elegida.">?</i>
+          <span>Fast quality (preview)</span>
+          <i class="help" data-tip="Processes at a maximum of 1200 px on the longest side to keep real-time rendering smooth. Download always uses the full chosen resolution.">?</i>
         </label>
 
         <div class="info-box" style="margin-top:12px">
-          <div class="kv"><span>Resultado en píxeles</span><b id="i_target_px">—</b></div>
-          <div class="kv"><span>Factor de escala</span><b id="i_scale">—</b></div>
-          <div class="kv" id="i_fast_row" style="display:none"><span>Previsualización activa</span><b id="i_fast_px" style="color:var(--warn)">—</b></div>
+          <div class="kv"><span>Output in pixels</span><b id="i_target_px">—</b></div>
+          <div class="kv"><span>Scale factor</span><b id="i_scale">—</b></div>
+          <div class="kv" id="i_fast_row" style="display:none"><span>Preview active</span><b id="i_fast_px" style="color:var(--warn)">—</b></div>
         </div>
       </div>
     </div>
@@ -896,16 +1303,16 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     <!-- 2. AJUSTES DE IMAGEN — solo en modo AVANZADO. Brillo/Contraste/Nitidez
          son pre-procesamiento, útiles cuando el arte llega "flojo" pero el
          usuario simple no debe lidiar con ellos. -->
-    <div class="card collapsible disabled-card advanced-only" id="card-tonal">
-      <h2>2 · Ajustes de imagen</h2>
+    <div class="card collapsible step-card disabled-card advanced-only" id="card-tonal">
+      <h2>Image Adjustments</h2>
 
-      <label>Brillo <i class="help" data-tip="Multiplica el valor RGB. 1.0 = neutro. Sube si la imagen es muy oscura.">?</i><span class="val" id="v_brightness">1.00</span></label>
+      <label>Brightness <i class="help" data-tip="Multiplies the RGB value. 1.0 = neutral. Raise if the image is too dark.">?</i><span class="val" id="v_brightness">1.00</span></label>
       <input type="range" id="brightness" min="0.4" max="1.8" step="0.01" value="1">
 
-      <label>Contraste <i class="help" data-tip="Expande o comprime los tonos alrededor del gris medio. Útil para separar mejor el sujeto del fondo antes de remover.">?</i><span class="val" id="v_contrast">1.00</span></label>
+      <label>Contrast <i class="help" data-tip="Expands or compresses tones around mid-gray. Useful to better separate the subject from the background before removal.">?</i><span class="val" id="v_contrast">1.00</span></label>
       <input type="range" id="contrast" min="0.4" max="2.5" step="0.01" value="1">
 
-      <label>Nitidez <i class="help" data-tip="Resalta bordes con un filtro unsharp 3×3. Ayuda a preservar detalle fino en el semitono.">?</i><span class="val" id="v_sharpness">1.00</span></label>
+      <label>Sharpness <i class="help" data-tip="Enhances edges with a 3×3 unsharp filter. Helps preserve fine detail in the halftone.">?</i><span class="val" id="v_sharpness">1.00</span></label>
       <input type="range" id="sharpness" min="0" max="3" step="0.05" value="1">
     </div>
 
@@ -936,99 +1343,105 @@ body[data-ux="advanced"] .simple-only{display:none !important}
          preset configura mode + color + tolerancia + feather + gamma
          + dot-gain de manera coherente para esa playera.
     ============================================================== -->
-    <div class="card collapsible disabled-card" id="card-garment">
-      <h2>3 · Tu prenda</h2>
+    <div class="card collapsible step-card disabled-card" id="card-garment">
+      <h2>Your Garment</h2>
 
       <!-- Presets de tipo de prenda — visibles en SIMPLE y AVANZADO -->
-      <div class="section-title">Elegí tu playera</div>
+      <div class="section-title">Choose your garment</div>
       <div class="garment-type-grid" id="garmentTypeGrid">
-        <button class="g-type active" data-preset="negra"  type="button"><span class="g-chip" style="background:#0a0a0a"></span>Negra</button>
-        <button class="g-type"        data-preset="blanca" type="button"><span class="g-chip" style="background:#ffffff"></span>Blanca</button>
-        <button class="g-type"        data-preset="roja"   type="button"><span class="g-chip" style="background:#b32219"></span>Roja</button>
-        <button class="g-type"        data-preset="azul"   type="button"><span class="g-chip" style="background:#1d4ed8"></span>Azul</button>
-        <button class="g-type"        data-preset="gris"   type="button"><span class="g-chip" style="background:#7d7d7d"></span>Gris</button>
+        <button class="g-type active" data-preset="negra"  type="button"><span class="g-chip" style="background:#0a0a0a"></span>Black</button>
+        <button class="g-type"        data-preset="blanca" type="button"><span class="g-chip" style="background:#ffffff"></span>White</button>
+        <button class="g-type"        data-preset="roja"   type="button"><span class="g-chip" style="background:#b32219"></span>Red</button>
+        <button class="g-type"        data-preset="azul"   type="button"><span class="g-chip" style="background:#1d4ed8"></span>Blue</button>
+        <button class="g-type"        data-preset="gris"   type="button"><span class="g-chip" style="background:#7d7d7d"></span>Gray</button>
         <button class="g-type"        data-preset="beige"  type="button"><span class="g-chip" style="background:#d4c39c"></span>Beige</button>
-        <button class="g-type"        data-preset="verde"  type="button"><span class="g-chip" style="background:#1f5340"></span>Verde</button>
-        <button class="g-type"        data-preset="custom" type="button"><span class="g-chip g-chip-custom"></span>Otro color</button>
+        <button class="g-type"        data-preset="verde"  type="button"><span class="g-chip" style="background:#1f5340"></span>Green</button>
+        <button class="g-type"        data-preset="custom" type="button"><span class="g-chip g-chip-custom"></span>Other color</button>
       </div>
 
       <!-- Acciones rápidas — visibles en ambos modos -->
       <div class="garment-actions">
-        <button class="btn outline compact" id="btn-auto-detect" type="button" title="Analiza los bordes de la imagen y propone el color de prenda dominante">
+        <button class="btn outline compact" id="btn-auto-detect" type="button" title="Analyzes image edges and suggests the dominant garment color">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-          <span>Detectar color</span>
+          <span>Detect color</span>
         </button>
-        <button class="btn outline compact" id="btn-pick-garment" type="button" title="Toca un pixel sobre la imagen para usar ese color como prenda">
+        <button class="btn outline compact" id="btn-pick-garment" type="button" title="Click a pixel on the image to use that color as the garment">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22l4-4"/><path d="M14.5 6.5L20 1l3 3-5.5 5.5"/><path d="M3 21l4-1L18 9l-3-3L4 17l-1 4z"/></svg>
-          <span>Tomar de imagen</span>
+          <span>Pick from image</span>
         </button>
       </div>
 
       <!-- Editor de color (siempre visible: permite afinar el preset elegido) -->
       <div class="garment-row">
-        <input type="color" id="garment_picker" value="#000000" title="Color exacto de la prenda">
+        <input type="color" id="garment_picker" value="#000000" title="Exact garment color">
         <input type="text" id="garment_hex" value="#000000" maxlength="7" spellcheck="false" autocomplete="off">
       </div>
       <div class="picked-preview" id="pickedPreview" style="display:none">
         <span class="pp-chip" id="ppChip"></span>
-        <span id="ppLabel">Color tomado</span>
+        <span id="ppLabel">Color picked</span>
       </div>
 
       <!-- ============== SLIDERS SIMPLES (modo SIMPLE) ============== -->
       <div class="simple-only">
-        <label>Qué tanto eliminar <i class="help" data-tip="Sube si la playera todavía se asoma en zonas que deberían ser invisibles. Baja si tu arte está perdiendo zonas que querés imprimir.">?</i><span class="val" id="v_s_remove">35</span></label>
-        <input type="range" id="s_remove" min="0" max="100" step="1" value="35">
+        <label>How much to remove <i class="help" data-tip="Starts at 0 (remove nothing). Raise gradually until the garment color disappears from areas that should be transparent. The slider has extra room below 0 (shown as 0) so you can dial in a truly clean baseline before any removal kicks in.">?</i><span class="val"><span id="v_s_remove">0</span><span class="val-word muted" id="w_s_remove">None</span></span></label>
+        <div class="slider-wrap">
+          <input type="range" id="s_remove" min="-100" max="100" step="1" value="-100">
+          <div class="slider-ticks" aria-hidden="true"><span class="major"></span><span></span><span></span><span></span><span class="major"></span><span></span><span></span><span></span><span class="major"></span></div>
+        </div>
 
-        <label>Cantidad de semitono <i class="help" data-tip="Más alto = transición más amplia entre la playera y la tinta sólida, con más puntos visibles. Más bajo = bordes más duros.">?</i><span class="val" id="v_s_spread">50</span></label>
-        <input type="range" id="s_spread" min="0" max="100" step="1" value="50">
+        <label>Halftone amount <i class="help" data-tip="Higher = wider transition between garment and solid ink, with more visible dots. Lower = harder edges. Starts at 0.">?</i><span class="val"><span id="v_s_spread">0</span><span class="val-word muted" id="w_s_spread">Hard edge</span></span></label>
+        <div class="slider-wrap">
+          <input type="range" id="s_spread" min="0" max="100" step="1" value="0">
+          <div class="slider-ticks" aria-hidden="true"><span class="major"></span><span></span><span></span><span class="major"></span><span></span><span></span><span class="major"></span><span></span><span></span><span class="major"></span></div>
+        </div>
       </div>
 
       <!-- ============ CONTROLES AVANZADOS (modo AVANZADO) ============ -->
       <div class="advanced-only">
-        <div class="section-title">Modo de separación</div>
-        <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Modo de separación">
+        <div class="section-title">Separation mode</div>
+        <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Separation mode">
           <button class="mode-btn active" data-mode="luminance" type="button" role="tab" aria-selected="true">
-            <span>Por luminancia</span>
-            <span class="mode-tag">prenda negra</span>
+            <span>By luminance</span>
+            <span class="mode-tag">black garment</span>
           </button>
           <button class="mode-btn" data-mode="color" type="button" role="tab" aria-selected="false">
-            <span>Por color</span>
-            <span class="mode-tag">prenda de color</span>
+            <span>By color</span>
+            <span class="mode-tag">colored garment</span>
           </button>
         </div>
 
-        <label>Gamma <i class="help" data-tip="Curva los medios tonos del tono que alimenta el semitono. >1 abre sombras, <1 oscurece medios.">?</i><span class="val" id="v_gamma">1.00</span></label>
+        <label>Gamma <i class="help" data-tip="Curves the midtones of the tone feeding the halftone. >1 opens shadows, <1 darkens midtones.">?</i><span class="val" id="v_gamma">1.00</span></label>
         <input type="range" id="gamma" min="0.3" max="2.5" step="0.01" value="1">
 
         <div id="lum-mode-block" class="mode-block">
-          <label>Corte negro <i class="help" data-tip="Tonos por debajo se eliminan (transparentes). Es el rango que la prenda negra ya absorbe.">?</i><span class="val" id="v_black_cut">35</span></label>
+          <label>Black cut <i class="help" data-tip="Tones below this are removed (transparent). This is the range the black garment already absorbs.">?</i><span class="val" id="v_black_cut">35</span></label>
           <input type="range" id="black_cut" min="0" max="180" step="1" value="35">
 
-          <label>Corte blanco <i class="help" data-tip="Tonos por encima quedan 100% sólidos (tinta plena).">?</i><span class="val" id="v_white_cut">225</span></label>
+          <label>White cut <i class="help" data-tip="Tones above this are 100% solid (full ink).">?</i><span class="val" id="v_white_cut">225</span></label>
           <input type="range" id="white_cut" min="80" max="255" step="1" value="225">
         </div>
 
         <div id="color-mode-block" class="mode-block hidden">
-          <label>Tolerancia <i class="help" data-tip="Distancia de color por debajo de la cual el pixel se considera prenda y se elimina (alpha=0). 0 = exacto, 100 = generoso.">?</i><span class="val" id="v_color_tol">15</span></label>
+          <label>Tolerance <i class="help" data-tip="Color distance below which the pixel is considered garment and removed (alpha=0). 0 = exact, 100 = generous.">?</i><span class="val" id="v_color_tol">15</span></label>
           <input type="range" id="color_tol" min="0" max="100" step="1" value="15">
 
-          <label>Zona de transición <i class="help" data-tip="Ancho de la franja donde aparece el semitono entre la prenda y la zona sólida. Mayor = transición más suave.">?</i><span class="val" id="v_color_feather">30</span></label>
+          <label>Transition zone <i class="help" data-tip="Width of the band where the halftone appears between garment and solid area. Wider = smoother transition.">?</i><span class="val" id="v_color_feather">30</span></label>
           <input type="range" id="color_feather" min="0" max="120" step="1" value="30">
 
-          <label>Sensibilidad de color <i class="help" data-tip="Peso de los canales a/b (matiz) en la distancia. >1 = más sensible a matices; <1 = más permisivo con variaciones de matiz.">?</i><span class="val" id="v_color_chroma">1.00</span></label>
+          <label>Color sensitivity <i class="help" data-tip="Weight of a/b channels (hue) in the distance. >1 = more sensitive to hues; <1 = more permissive with hue variations.">?</i><span class="val" id="v_color_chroma">1.00</span></label>
           <input type="range" id="color_chroma" min="0.3" max="2.5" step="0.05" value="1">
 
           <label class="toggle">
             <input type="checkbox" id="preserve_luma">
-            <span>Conservar luminosidad</span>
-            <i class="help" data-tip="Ignora diferencias de brillo. Así sombras o dobleces sobre la prenda también se consideran prenda y se eliminan.">?</i>
+            <span>Preserve luminosity</span>
+            <i class="help" data-tip="Ignores brightness differences. Shadows or folds on the garment are also treated as garment and removed.">?</i>
           </label>
         </div>
       </div>
 
       <small class="advanced-only">
-        <b>Por luminancia</b>: lo oscuro de la imagen se elimina (ideal para prenda <b>negra</b>).<br>
-        <b>Por color</b>: se elimina lo parecido al color de prenda elegido (ideal para <b>rojo, azul, beige</b>, etc.). El semitono aparece SOLO en la franja de transición.
+        <b>By luminance</b>: dark areas of the image are removed (ideal for <b>black</b> garments).<br>
+        <b>By color</b>: areas matching the chosen garment color are removed (ideal for <b>red, blue, beige</b>, etc.). Halftone appears ONLY in the transition band.
       </small>
     </div>
 
@@ -1039,55 +1452,62 @@ body[data-ux="advanced"] .simple-only{display:none !important}
          exponen los parámetros reales del clustered-dot screen (LPI,
          ángulo, mín-dot en mm, anti-alias).
     ============================================================== -->
-    <div class="card collapsible disabled-card" id="card-screen">
-      <h2>4 · Semitono / Impresión</h2>
+    <div class="card collapsible step-card disabled-card advanced-only" id="card-screen">
+      <h2>Halftone / Print</h2>
 
-      <label class="toggle strong">
-        <input type="checkbox" id="halftone_enabled">
-        Habilitar semitono
-      </label>
+      <!-- Halftone is always on when the user hits "Process now". The
+           hidden checkbox stays in the DOM so the rest of the pipeline
+           (readParams, download tag, etc.) keeps working unchanged. -->
+      <input type="checkbox" id="halftone_enabled" checked hidden>
 
-      <div id="halftone-block" class="disabled-block">
+      <div id="halftone-block">
         <!-- Controles técnicos del clustered-dot screen. Los impresores
              piensan en LPI/ángulo/mín-dot, así que aparecen en ambos modos.
              Anti-alias queda como avanzado porque es decisión de "estética
              1-bit vs suave" que no todos necesitan tocar. -->
-        <label>Lineatura (LPI) <i class="help" data-tip="Líneas por pulgada. Más alto = trama más fina (más detalle imprimible, requiere más resolución de malla).">?</i><span class="val" id="v_lpi">35</span></label>
+        <label>Screen ruling (LPI) <i class="help" data-tip="Lines per inch. Higher = finer screen (more printable detail, requires higher mesh resolution).">?</i><span class="val" id="v_lpi">35</span></label>
         <input type="range" id="lpi" min="15" max="65" step="1" value="35">
 
-        <label>Ángulo <i class="help" data-tip="Inclinación de la trama. 22.5° es el ángulo clásico para tinta única en serigrafía.">?</i><span class="val" id="v_angle">22.5</span></label>
+        <label>Angle <i class="help" data-tip="Screen angle. 22.5° is the classic angle for single-ink screen printing.">?</i><span class="val" id="v_angle">22.5</span></label>
         <input type="range" id="angle" min="0" max="90" step="0.5" value="22.5">
 
-        <label>Punto mínimo (mm) <i class="help" data-tip="Tamaño físico mínimo de un punto. Los puntos más finos no son imprimibles de forma confiable y se descartan.">?</i><span class="val" id="v_min_dot_mm">0.20</span></label>
-        <input type="range" id="min_dot_mm" min="0" max="0.8" step="0.01" value="0.2">
+        <label>Minimum dot (mm) <i class="help" data-tip="Minimum physical size of a printable dot. DTF production floor is ~0.20 mm — finer dots may not transfer reliably (powder buries them, washes blow them out).">?</i><span class="val" id="v_min_dot_mm">0.20</span></label>
+        <input type="range" id="min_dot_mm" min="0.10" max="0.8" step="0.01" value="0.2">
+        <div class="field-warn" id="min_dot_warn" hidden>⚠ Below the DTF production floor (~0.15 mm). Dots this small may not transfer on standard printers.</div>
 
         <label class="toggle advanced-only">
           <input type="checkbox" id="soft_edges">
-          <span>Anti-alias en bordes de puntos</span>
-          <i class="help" data-tip="Suaviza el borde de cada punto con ~1 px de transición. Desactivado da salida pura 1-bit estilo Bitmap › Halftone Screen de Photoshop.">?</i>
+          <span>Anti-alias on dot edges</span>
+          <i class="help" data-tip="Smooths each dot edge with ~1 px of transition. Disabled gives pure 1-bit output like Photoshop's Bitmap › Halftone Screen.">?</i>
         </label>
       </div>
 
-      <button class="btn primary" id="btn-process" disabled>Procesar ahora</button>
+      <button class="btn primary" id="btn-process" disabled>Process design</button>
       <a id="download" style="display:none">
-        <button class="btn pink" type="button">Descargar PNG transparente (calidad completa)</button>
+        <button class="btn pink" type="button">Download transparent PNG (full quality)</button>
       </a>
       <div class="status" id="status"></div>
+    </div>
 
-      <small>
-        Rojo en zonas = transparente. Verde = tinta sólida. Naranja = semitono.
-        El PNG conserva transparencia real y el DPI elegido queda embebido.
-      </small>
+    <!-- Sticky CTA strip: pinned to the bottom of the controls column
+         so the primary action is always within reach. Mirrors the
+         buttons inside card 4 (which stay for accessibility / focus
+         flow). Hidden until an image is loaded (.wrap.has-image). -->
+    <div class="action-bar" id="actionBar">
+      <button class="btn primary" id="btn-process-2" type="button" disabled>Process design</button>
+      <a id="download-2" style="display:none">
+        <button class="btn pink" type="button">Download PNG (full quality)</button>
+      </a>
     </div>
   </div>
 
   <!-- VISTA PREVIA -->
   <div class="card">
     <div class="view-tabs" id="viewTabs">
-      <button class="vtab active" data-view="result"   title="Diseño final con la transparencia aplicada">Resultado</button>
-      <button class="vtab"        data-view="original" title="Imagen original sin separación">Original</button>
-      <button class="vtab"        data-view="mask"     title="Canal alpha (blanco = imprime, negro = transparente)">Máscara</button>
-      <button class="vtab"        data-view="zones"    title="Mapa visual: rojo = eliminado, naranja = semitoneado, verde = sólido">Zonas</button>
+      <button class="vtab active" data-view="result"   title="Final design with transparency applied">Result</button>
+      <button class="vtab"        data-view="original" title="Original image without separation">Original</button>
+      <button class="vtab"        data-view="mask"     title="Alpha channel (white = prints, black = transparent)">Mask</button>
+      <button class="vtab"        data-view="zones"    title="Visual map: red = removed, orange = halftoned, green = solid">Zones</button>
     </div>
     <div class="viewer" id="viewer">
       <div class="viewer-checker"></div>
@@ -1098,42 +1518,59 @@ body[data-ux="advanced"] .simple-only{display:none !important}
         <canvas id="zones"></canvas>
       </div>
 
-      <!-- Leyenda visible solo en la pestaña Zonas. Es UX puro: no afecta
-           el PNG exportado, solo le muestra al usuario qué hace cada zona. -->
-      <div class="zones-legend">
-        <span><span class="swatch sw-red"></span>Se elimina</span>
-        <span><span class="swatch sw-orange"></span>Semitono</span>
-        <span><span class="swatch sw-green"></span>Tinta sólida</span>
-      </div>
+      <!-- Zones legend now lives in .viewer-legend (chip rail above). -->
 
       <div class="viewer-toolbar">
-        <button id="vt_zoom_out" title="Alejar (-)">−</button>
-        <button id="vt_zoom_in"  title="Acercar (+)">+</button>
+        <button id="vt_zoom_out" title="Zoom out (-)">−</button>
+        <button id="vt_zoom_in"  title="Zoom in (+)">+</button>
         <span class="zoom-level" id="vt_zoom_lvl">—</span>
         <div class="sep"></div>
-        <button id="vt_fit" title="Ajustar a vista (0)">⤧</button>
-        <button id="vt_100" title="Tamaño real 100% (1)">1:1</button>
+        <button id="vt_fit" title="Fit to view (0)">⤧</button>
+        <button id="vt_100" title="Actual size 100% (1)">1:1</button>
         <div class="sep"></div>
-        <div class="bg-selector" role="group" aria-label="Fondo del preview">
-          <button class="bg-opt active" data-bg="checker" title="Transparencia (checkerboard) — atajo C">
+        <button id="vt_wipe" title="Before / after compare (W)" aria-pressed="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+        </button>
+        <div class="sep"></div>
+        <div class="bg-selector" role="group" aria-label="Preview background">
+          <button class="bg-opt active" data-bg="checker" title="Transparency (checkerboard) — shortcut C">
             <span class="bg-icon bg-icon-checker"></span>
           </button>
-          <button class="bg-opt" data-bg="garment" title="Color de prenda seleccionado">
+          <button class="bg-opt" data-bg="garment" title="Selected garment color">
             <span class="bg-icon bg-icon-garment"></span>
           </button>
-          <button class="bg-opt" data-bg="black" title="Negro (simula playera oscura)">
+          <button class="bg-opt" data-bg="black" title="Black (simulates dark garment)">
             <span class="bg-icon" style="background:#000"></span>
           </button>
-          <button class="bg-opt" data-bg="white" title="Blanco (simula prenda clara)">
+          <button class="bg-opt" data-bg="white" title="White (simulates light garment)">
             <span class="bg-icon" style="background:#fff"></span>
           </button>
         </div>
       </div>
 
+      <!-- Legend rail (only visible when the Zones tab is active) -->
+      <div class="viewer-legend" aria-hidden="true">
+        <span class="lg-chip"><span class="lg-sw" style="background:#ff4646"></span>Removed</span>
+        <span class="lg-chip"><span class="lg-sw" style="background:#ffa032"></span>Halftone</span>
+        <span class="lg-chip"><span class="lg-sw" style="background:#46c878"></span>Solid ink</span>
+      </div>
+
+      <!-- Before/After wipe handle (only visible when .wipe is on the viewer) -->
+      <div class="wipe-handle" aria-hidden="true"></div>
+
       <div class="viewer-hud" id="vt_hud">—</div>
-      <div class="viewer-busy" id="vt_busy">Procesando</div>
-      <div class="pick-hint">🎯 Haz clic en la imagen para tomar el color de prenda (Esc para cancelar)</div>
-      <div class="placeholder">Sube o arrastra una imagen para comenzar</div>
+      <div class="viewer-busy" id="vt_busy">Processing</div>
+      <div class="pick-hint">🎯 Click on the image to pick the garment color (Esc to cancel)</div>
+      <div class="placeholder">Upload or drag an image to start</div>
+    </div>
+
+    <!-- Status strip: dimensions, DPI, last process time, model download progress -->
+    <div class="status-strip" id="statusStrip">
+      <span class="dot"></span>
+      <span class="ss-label" id="ss_label">Ready</span>
+      <span class="ss-sep"></span>
+      <span id="ss_meta">Upload an image to start</span>
+      <div class="ss-prog"><i id="ss_prog_bar"></i></div>
     </div>
   </div>
 
@@ -1143,7 +1580,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 <div class="drag-overlay" id="dragOverlay">
   <div class="drag-overlay-box">
     <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    Suelta tu imagen aquí
+    Drop your image here
   </div>
 </div>
 
@@ -1161,6 +1598,85 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   const $ = (id) => document.getElementById(id);
 
   // ==================================================================
+  //   WEB WORKER — keeps the UI lag-free during heavy pixel work
+  // ==================================================================
+  //   The processor.worker.js file runs all CPU-heavy passes
+  //   (brightness/contrast/sharpness, OKLab tone, halftone screen) on
+  //   a background thread. Main thread stays free for sliders, pan
+  //   and zoom. We transfer the RGBA buffer to the worker (zero-copy)
+  //   and the worker transfers back the result the same way.
+  //
+  //   If the worker fails to construct (CSP, very old browser), we
+  //   fall back to the in-page synchronous implementations.
+  // ==================================================================
+  let processorWorker = null;
+  let workerReqId = 0;
+  const workerPending = new Map();
+  function getWorker(){
+    if (processorWorker || processorWorker === false) return processorWorker || null;
+    try {
+      // Cache-bust the worker URL so browsers don't hand us a stale
+      // copy from HTTP cache. APP_BUILD is bumped on every release.
+      processorWorker = new Worker('processor.worker.js?v=' + (window.APP_BUILD || Date.now()));
+      processorWorker.onmessage = (e) => {
+        const m = e.data || {};
+        const p = workerPending.get(m.id);
+        if (!p) return;
+        workerPending.delete(m.id);
+        if (m.ok) p.resolve(m); else p.reject(new Error(m.error || 'worker error'));
+      };
+      processorWorker.onerror = (e) => {
+        console.warn('Worker error, falling back to main thread:', e.message);
+        // Reject all pending and disable worker
+        for (const [, p] of workerPending) p.reject(new Error('worker error'));
+        workerPending.clear();
+        try { processorWorker.terminate(); } catch(_){}
+        processorWorker = false;
+      };
+      return processorWorker;
+    } catch (err) {
+      console.warn('Worker unavailable, using main thread:', err.message);
+      processorWorker = false;
+      return null;
+    }
+  }
+  function runInWorker(rgba, width, height, params){
+    const w = getWorker();
+    if (!w) return null;
+    const id = ++workerReqId;
+    return new Promise((resolve, reject) => {
+      workerPending.set(id, { resolve, reject });
+      try {
+        w.postMessage({ id, rgba, width, height, params }, [rgba.buffer]);
+      } catch (err) {
+        workerPending.delete(id);
+        reject(err);
+      }
+    });
+  }
+
+  // ==================================================================
+  //   SERVICE WORKER — disabled during active development
+  // ==================================================================
+  //   The previous cache-first service worker was serving stale HTML
+  //   even after code changes (the new SW would install but the old one
+  //   stayed in control of the open tab, so users had to refresh twice
+  //   to see any fix). Until the app stabilizes, we actively UNREGISTER
+  //   any existing service worker and DELETE all caches on every load.
+  //   That guarantees every refresh hits the network and gets the
+  //   latest code — no more "the fix isn't reaching me".
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((r) => r.unregister().catch(() => {}));
+    }).catch(() => {});
+  }
+  if (typeof caches !== 'undefined' && caches.keys) {
+    caches.keys().then((keys) => {
+      keys.forEach((k) => caches.delete(k).catch(() => {}));
+    }).catch(() => {});
+  }
+
+  // ==================================================================
   //   Estado global
   // ==================================================================
   const S = {
@@ -1171,7 +1687,12 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     ratio: 1,
     updatingRatio: false,
     firstResult: true,
-    fileName: 'arte',
+    // Halftone is applied ONLY when the user clicks "Process now"
+    // (or downloads). Live slider tweaks show the adjusted/cleaned
+    // preview without halftone, and any new slider input flips this
+    // back to false so the preview stays smooth and predictable.
+    halftoneActive: false,
+    fileName: 'artwork',
     fileFullName: '',            // nombre completo con extensión (para la file-card)
     fileSize: 0,                 // bytes (para mostrar tamaño en la file-card)
     fileHasAlpha: false,         // si el PNG fuente tiene transparencia real
@@ -1213,6 +1734,17 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       upd();
     });
 
+  // Warn when the minimum dot drops below the DTF production floor.
+  // 0.15 mm is the practical reliability threshold across most DTF
+  // setups; below this, dots are routinely lost in powder + transfer.
+  (function bindMinDotWarning(){
+    const el = $('min_dot_mm'), warn = $('min_dot_warn');
+    if (!el || !warn) return;
+    const upd = () => { warn.hidden = parseFloat(el.value) >= 0.15; };
+    el.addEventListener('input', upd);
+    upd();
+  })();
+
   // ==================================================================
   //   UX MODE SWITCH (Simple ↔ Avanzado)
   // ==================================================================
@@ -1244,9 +1776,13 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     const remove = mode === 'color'
       ? parseFloat($('color_tol').value)
       : parseFloat($('black_cut').value);
+    // Advanced → Simple: advanced sliders are 0..100/0..180, simple is
+    // -100..100 with display clamped at 0. Map directly to the 0..100
+    // half of the simple slider (negative buffer is only reachable by
+    // user drag, not by inverse-syncing advanced values).
     const sRemove = clamp(Math.round(remove), 0, 100);
     $('s_remove').value = sRemove;
-    $('v_s_remove').textContent = sRemove;
+    $('v_s_remove').textContent = Math.max(0, sRemove);
     // s_spread: feather en color; ancho de la franja en luminancia.
     let sSpread;
     if (mode === 'color'){
@@ -1274,14 +1810,18 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   //   color, no son números mágicos: se eligieron probando el screen AM
   //   con coverage típica.
   const GARMENT_PRESETS = {
-    negra:  { mode:'luminance', hex:'#000000', s_remove:35, s_spread:60, preview:'black' },
-    blanca: { mode:'color',     hex:'#FFFFFF', s_remove:20, s_spread:35, preview:'white' },
-    roja:   { mode:'color',     hex:'#B32219', s_remove:22, s_spread:35, preview:'garment' },
-    azul:   { mode:'color',     hex:'#1D4ED8', s_remove:22, s_spread:35, preview:'garment' },
-    gris:   { mode:'color',     hex:'#7D7D7D', s_remove:25, s_spread:40, preview:'garment' },
-    beige:  { mode:'color',     hex:'#D4C39C', s_remove:22, s_spread:35, preview:'garment' },
-    verde:  { mode:'color',     hex:'#1F5340', s_remove:22, s_spread:35, preview:'garment' },
-    custom: { mode:'color',     hex:null,      s_remove:22, s_spread:35, preview:'garment' },
+    // Both simple sliders default to 0 so every preset starts from
+    // "remove nothing, no halftone" and the user dials up only what
+    // the artwork needs. s_remove is internally -100 (shown as 0) to
+    // give a dead-zone buffer below the active range.
+    negra:  { mode:'luminance', hex:'#000000', s_remove:-100, s_spread:0, preview:'black' },
+    blanca: { mode:'color',     hex:'#FFFFFF', s_remove:-100, s_spread:0, preview:'white' },
+    roja:   { mode:'color',     hex:'#B32219', s_remove:-100, s_spread:0, preview:'garment' },
+    azul:   { mode:'color',     hex:'#1D4ED8', s_remove:-100, s_spread:0, preview:'garment' },
+    gris:   { mode:'color',     hex:'#7D7D7D', s_remove:-100, s_spread:0, preview:'garment' },
+    beige:  { mode:'color',     hex:'#D4C39C', s_remove:-100, s_spread:0, preview:'garment' },
+    verde:  { mode:'color',     hex:'#1F5340', s_remove:-100, s_spread:0, preview:'garment' },
+    custom: { mode:'color',     hex:null,      s_remove:-100, s_spread:0, preview:'garment' },
   };
   function applyGarmentPreset(name){
     const p = GARMENT_PRESETS[name];
@@ -1303,8 +1843,12 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       $('v_' + id).textContent = v;
       SIMPLE_SYNC[id](v);
     });
-    // Sugerir el fondo de preview adecuado
-    if (p.preview) setPreviewBg(p.preview);
+    // Note: we intentionally do NOT change the preview background here.
+    // The garment color and the viewer background used to be linked,
+    // but that made it look like the preview was "jumping" every time
+    // the user picked a garment type. They are now independent: pick a
+    // garment for color separation; pick a preview background from the
+    // viewer toolbar to evaluate how the cut-out reads on top of it.
     if (S.sourceCanvas) scheduleProcess();
   }
 
@@ -1324,10 +1868,17 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   //   ciones, así que no los facetamos detrás de un slider amigable.
   const SIMPLE_SYNC = {
     s_remove: (v) => {
-      // 0..100 simple → 0..100 tolerancia (color) ó 0..180 black_cut (luminancia)
-      $('color_tol').value = v;
-      $('v_color_tol').textContent = v;
-      const bc = Math.round((v / 100) * 180);
+      // The simple slider spans -100..100 but its DISPLAY is clamped to
+      // 0..100. The negative half is a "dead zone" buffer so the user
+      // can dial in a clean baseline before any removal kicks in — when
+      // v <= 0, both color tolerance and black-cut snap to 0 (truly
+      // remove nothing). Above 0, the mapping behaves as before.
+      const shown = Math.max(0, v);
+      $('v_s_remove').textContent = shown;
+      const eff = Math.max(0, v);
+      $('color_tol').value = eff;
+      $('v_color_tol').textContent = eff;
+      const bc = Math.round((eff / 100) * 180);
       $('black_cut').value = bc;
       $('v_black_cut').textContent = bc;
     },
@@ -1366,7 +1917,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   function detectGarmentColorFromImage(){
     const src = S.workingCanvas || S.sourceCanvas;
     if (!src){
-      setStatus('Carga una imagen primero.', 'err');
+      setStatus(T('Load an image first.', 'Carga una imagen primero.'), 'err');
       return;
     }
     const ctx = src.getContext('2d');
@@ -1384,7 +1935,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     sample(ctx.getImageData(0, band, band, h - 2*band).data);      // izquierda
     sample(ctx.getImageData(w - band, band, band, h - 2*band).data); // derecha
     if (!n){
-      setStatus('No pude detectar un color dominante (¿imagen muy transparente?).', 'err');
+      setStatus(T('Could not detect a dominant color (image too transparent?).',
+                  'No pude detectar un color dominante (¿imagen muy transparente?).'), 'err');
       return;
     }
     r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
@@ -1392,7 +1944,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     // Pasar a preset "custom" y aplicar el color
     applyGarmentPreset('custom');
     setGarmentColorFromHex(hex);
-    setStatus(`Color detectado: ${hex.toUpperCase()} (promedio de los bordes)`, 'ok');
+    setStatus(T(`Color detected: ${hex.toUpperCase()} (edge average)`,
+                `Color detectado: ${hex.toUpperCase()} (promedio de los bordes)`), 'ok');
   }
   $('btn-auto-detect').addEventListener('click', detectGarmentColorFromImage);
 
@@ -1494,8 +2047,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   // Botones de la file-card.
   $('btn-change').addEventListener('click', () => $('file').click());
   $('btn-reprocess').addEventListener('click', () => {
-    if (!S.sourceCanvas){ setStatus('Primero sube una imagen.', 'err'); return; }
-    setStatus('Reprocesando...', 'busy');
+    if (!S.sourceCanvas){ setStatus(T('Upload an image first.', 'Primero sube una imagen.'), 'err'); return; }
+    setStatus(T('Reprocessing...', 'Reprocesando...'), 'busy');
     scheduleProcess(0);
   });
   $('btn-remove').addEventListener('click', () => {
@@ -1505,13 +2058,13 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 
   function handleNewFile(file){
     if (!/^image\//.test(file.type)){
-      setDropzoneError('Solo se admiten imágenes PNG, JPG o WEBP.');
-      setStatus('Formato no admitido.', 'err');
+      setDropzoneError('Only PNG, JPG or WEBP images are accepted.');
+      setStatus(T('Unsupported format.', 'Formato no soportado.'), 'err');
       return;
     }
-    S.fileFullName = file.name || 'arte';
+    S.fileFullName = file.name || 'artwork';
     S.fileSize = file.size || 0;
-    S.fileName = S.fileFullName.replace(/\.[^.]+$/, '') || 'arte';
+    S.fileName = S.fileFullName.replace(/\.[^.]+$/, '') || 'artwork';
     S.firstResult = true;
 
     // Si veníamos del estado "file-card" (cambio de imagen), volvemos a
@@ -1528,7 +2081,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   function setDropzoneError(msg){
     $('dropzone').classList.remove('loading');
     $('dropzone').classList.add('error');
-    $('dz_error_msg').textContent = msg || 'No se pudo cargar la imagen';
+    $('dz_error_msg').textContent = msg || 'Could not load image';
   }
 
   // Vuelve al estado vacío: limpia el estado relacionado a la imagen y
@@ -1550,10 +2103,12 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     // Limpiar el viewer y volver al estado "vacío" del preview.
     const viewer = $('viewer');
     if (viewer) viewer.classList.remove('has-image','grabbing','picking','view-original','view-mask','view-zones');
+    // Ocultar de nuevo la columna del preview hasta que vuelva a haber imagen.
+    document.querySelector('.wrap').classList.remove('has-image');
     ['before','mask','zones','result','out'].forEach((id) => {
       const c = $(id); if (c){ c.width = c.height = 0; }
     });
-    setStatus('Listo para una nueva imagen.');
+    setStatus(T('Ready for a new image.', 'Listo para una nueva imagen.'));
   }
 
   // Detecta si el canvas fuente tiene algún pixel con alfa < 255.
@@ -1598,15 +2153,15 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 
   // Rellena la card compacta con los datos del archivo cargado.
   function populateFileCard(c){
-    $('fcName').textContent = S.fileFullName || 'arte';
+    $('fcName').textContent = S.fileFullName || 'artwork';
     $('fcDims').textContent = `${c.width} × ${c.height} px`;
-    // Tamaño en cm @ 300 DPI (referencia universal para DTF).
-    const wcm300 = (c.width  / 300) * INCH_CM;
-    const hcm300 = (c.height / 300) * INCH_CM;
-    $('fcCm').textContent = `${wcm300.toFixed(1)} × ${hcm300.toFixed(1)} cm @ 300dpi`;
+    // Tamaño en in @ 300 DPI (referencia universal para DTF).
+    const wcm300 = c.width  / 300;
+    const hcm300 = c.height / 300;
+    $('fcCm').textContent = `${wcm300.toFixed(2)} × ${hcm300.toFixed(2)} in @ 300dpi`;
     $('fcDpi').textContent = S.sourceDpiKnown
       ? `${Math.round(S.sourceDpi)} dpi`
-      : `${Math.round(S.sourceDpi)} dpi (asumido)`;
+      : `${Math.round(S.sourceDpi)} dpi (assumed)`;
     $('fcSize').textContent = formatBytes(S.fileSize);
 
     // Thumbnail + badge de transparencia
@@ -1616,15 +2171,28 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   }
 
   async function loadAndInspect(file){
-    setStatus('Analizando imagen...', 'busy');
+    setStatus(T('Analyzing image...', 'Analizando imagen...'), 'busy');
     try {
       const buf = await file.arrayBuffer();
       const dpiInfo = readDpiFromBuffer(buf);
       const bmp = await loadImageFromBlob(new Blob([buf], { type: file.type }));
-      const c = document.createElement('canvas');
+      let c = document.createElement('canvas');
       c.width = bmp.naturalWidth || bmp.width;
       c.height = bmp.naturalHeight || bmp.height;
       c.getContext('2d').drawImage(bmp, 0, 0);
+
+      // Optional auto-trim: crop fully-transparent borders from the
+      // source so empty space never reaches the screening pipeline.
+      // Silently noops on images without an alpha channel.
+      const autoTrim = $('auto_trim');
+      if (autoTrim && autoTrim.checked){
+        const trimmed = trimTransparentBorders(c);
+        if (trimmed && (trimmed.width !== c.width || trimmed.height !== c.height)){
+          const savedPx = (c.width * c.height) - (trimmed.width * trimmed.height);
+          console.log(`Auto-trim: ${c.width}x${c.height} → ${trimmed.width}x${trimmed.height} (saved ${savedPx} px)`);
+          c = trimmed;
+        }
+      }
 
       S.sourceCanvas = c;
       S.origW = c.width; S.origH = c.height;
@@ -1632,15 +2200,15 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       S.sourceDpi = dpiInfo ? dpiInfo.dpi : 72;
       S.sourceDpiKnown = !!dpiInfo;
 
-      // Tamaño físico de la imagen original (cm) en su DPI embebido — se
+      // Tamaño físico de la imagen original (in) en su DPI embebido — se
       // usa solo para sugerir un ancho destino razonable. Los valores
-      // visibles (px / DPI / cm) ahora viven en la .file-card.
-      const wcm = (c.width  / S.sourceDpi) * INCH_CM;
+      // visibles (px / DPI / in) ahora viven en la .file-card.
+      const wcm = c.width / S.sourceDpi;
 
       let suggW;
-      if (wcm >= 50) suggW = 32;
+      if (wcm >= 20) suggW = 12.6;
       else if (wcm > 0) suggW = +wcm.toFixed(1);
-      else suggW = 32;
+      else suggW = 12.6;
       $('new_w_cm').value = suggW;
       $('new_h_cm').value = (suggW * S.ratio).toFixed(2);
 
@@ -1649,6 +2217,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       $('dropzone').style.display = 'none';
       populateFileCard(c);
       $('fileCard').style.display = '';
+      // Revelar la columna del preview ahora que hay imagen.
+      document.querySelector('.wrap').classList.add('has-image');
 
       $('prep-block').style.display = '';
       $('card-tonal').classList.remove('disabled-card');
@@ -1656,13 +2226,128 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       $('card-screen').classList.remove('disabled-card');
       $('btn-process').disabled = false;
       updateTargetInfo();
-      setStatus('Imagen lista. Generando primer resultado...');
+      setStatus(T('Image ready. Generating first result...', 'Imagen lista. Generando primer resultado...'));
       scheduleProcess(0);
     } catch (err){
       console.error(err);
-      setDropzoneError(err && err.message ? err.message : 'No se pudo cargar la imagen');
-      setStatus('Error: ' + (err && err.message ? err.message : err), 'err');
+      setDropzoneError(err && err.message ? err.message : 'Could not load image');
+      setStatus(T('Error: ', 'Error: ') + (err && err.message ? err.message : err), 'err');
     }
+  }
+
+  // ==================================================================
+  //   AUTO-TRIM TRANSPARENT BORDERS
+  // ==================================================================
+  //   Scans the alpha channel to find the bounding box of any pixel
+  //   with alpha > threshold, then returns a new canvas cropped to
+  //   that box. Returns the original canvas unchanged if:
+  //     · the image has no transparency at all (all alpha === 255), or
+  //     · it's already fully tight (no transparent border to trim).
+  //   ALPHA_THRESHOLD is intentionally > 0 to also trim near-empty
+  //   pixels from feathered cut-outs / AI bg removal residue.
+  // ==================================================================
+  //   AUTO-RETRIM AFTER HALFTONE
+  // ==================================================================
+  //   After Process Now applies the halftone screen, any solid black /
+  //   white block around the artwork that we *meant* to remove becomes
+  //   transparent (or near-transparent). The original source canvas,
+  //   though, still includes those big ink blocks — so the export ends
+  //   up with empty borders again. This walks the result's alpha
+  //   channel, finds the new tight bbox, maps it back to source-space,
+  //   and crops S.sourceCanvas so the next pass is pixel-tight.
+  //   Returns true when a meaningful trim happened (caller should
+  //   re-process), false otherwise.
+  function autoTrimSourceFromResult(alphaThreshold = 8, minSavedFrac = 0.01){
+    const r = S.lastResult;
+    const src = S.sourceCanvas;
+    if (!r || !r.alphaArray || !src) return false;
+    const aw = r.w, ah = r.h;
+    const alpha = r.alphaArray;
+    let top = -1, bottom = -1, left = aw, right = -1;
+    for (let y = 0; y < ah; y++){
+      let rowHasInk = false;
+      const rs = y * aw;
+      for (let x = 0; x < aw; x++){
+        if (alpha[rs + x] > alphaThreshold){
+          rowHasInk = true;
+          if (x < left)  left  = x;
+          if (x > right) right = x;
+        }
+      }
+      if (rowHasInk){
+        if (top === -1) top = y;
+        bottom = y;
+      }
+    }
+    if (top === -1) return false;
+    if (top === 0 && left === 0 && bottom === ah-1 && right === aw-1) return false;
+
+    // Map result-space bbox back to source-space.
+    const sx = src.width  / aw;
+    const sy = src.height / ah;
+    const sLeft   = Math.max(0,            Math.floor(left   * sx));
+    const sTop    = Math.max(0,            Math.floor(top    * sy));
+    const sRight  = Math.min(src.width-1,  Math.ceil(right   * sx));
+    const sBottom = Math.min(src.height-1, Math.ceil(bottom  * sy));
+    const nw = sRight - sLeft + 1;
+    const nh = sBottom - sTop + 1;
+
+    // Skip when the change is trivial — avoids endless 1px nudging.
+    const savedFrac = 1 - (nw * nh) / (src.width * src.height);
+    if (savedFrac < minSavedFrac) return false;
+
+    const out = document.createElement('canvas');
+    out.width = nw; out.height = nh;
+    out.getContext('2d').drawImage(src, sLeft, sTop, nw, nh, 0, 0, nw, nh);
+    S.sourceCanvas = out;
+    S.origW = nw; S.origH = nh;
+    S.ratio = nh / nw;
+    // Keep the user's chosen print WIDTH; recompute height from the
+    // new aspect ratio so the print stays proportional.
+    if ($('lock_ratio') && $('lock_ratio').checked){
+      const wcm = parseFloat($('new_w_cm').value) || 0;
+      if (wcm > 0) $('new_h_cm').value = (wcm * S.ratio).toFixed(2);
+    }
+    updateTargetInfo();
+    try { populateFileCard(out); } catch(_){}
+    console.log(`Auto-retrim: source ${src.width}x${src.height} → ${nw}x${nh} (saved ${(savedFrac*100).toFixed(1)}%)`);
+    return true;
+  }
+
+  function trimTransparentBorders(srcCv, alphaThreshold = 8){
+    const w = srcCv.width, h = srcCv.height;
+    if (!w || !h) return srcCv;
+    const ctx = srcCv.getContext('2d', { willReadFrequently: true });
+    const data = ctx.getImageData(0, 0, w, h).data;
+
+    let top = -1, bottom = -1, left = w, right = -1;
+    for (let y = 0; y < h; y++){
+      let rowHasInk = false;
+      const rowStart = y * w * 4;
+      for (let x = 0; x < w; x++){
+        const a = data[rowStart + x*4 + 3];
+        if (a > alphaThreshold){
+          rowHasInk = true;
+          if (x < left) left = x;
+          if (x > right) right = x;
+        }
+      }
+      if (rowHasInk){
+        if (top === -1) top = y;
+        bottom = y;
+      }
+    }
+
+    // Nothing to trim → either fully opaque image, or completely empty.
+    if (top === -1) return srcCv;
+    if (top === 0 && left === 0 && bottom === h - 1 && right === w - 1) return srcCv;
+
+    const nw = right - left + 1;
+    const nh = bottom - top + 1;
+    const out = document.createElement('canvas');
+    out.width = nw; out.height = nh;
+    out.getContext('2d').drawImage(srcCv, left, top, nw, nh, 0, 0, nw, nh);
+    return out;
   }
 
   function loadImageFromBlob(blob){
@@ -1670,7 +2355,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo decodificar la imagen')); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not decode image')); };
       img.src = url;
     });
   }
@@ -1759,8 +2444,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     const w = parseFloat($('new_w_cm').value) || 0;
     const h = parseFloat($('new_h_cm').value) || 0;
     const dpi = parseFloat($('target_dpi').value) || 300;
-    const wpx = Math.round(w / INCH_CM * dpi);
-    const hpx = Math.round(h / INCH_CM * dpi);
+    const wpx = Math.round(w * dpi);
+    const hpx = Math.round(h * dpi);
     $('i_target_px').textContent = `${wpx} × ${hpx} px`;
     const scale = S.origW ? (wpx / S.origW) : 1;
     $('i_scale').textContent = scale ? `${scale.toFixed(3)}×` : '—';
@@ -1780,24 +2465,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     }
   }
 
-  // ==================================================================
-  //   UI · Toggle "Habilitar semitono"
-  // ==================================================================
-  function syncHalftoneUi(){
-    $('halftone-block').classList.toggle('disabled-block', !$('halftone_enabled').checked);
-  }
-  $('halftone_enabled').addEventListener('change', () => {
-    syncHalftoneUi();
-    // Al ENCENDER el semitono, saltar al fondo de transparencia (checker)
-    // así el usuario ve inmediatamente los puntos sobre los cuadros. Es
-    // el feedback más útil porque revela el alpha real del PNG.
-    // (Al apagarlo no cambiamos el fondo: dejamos donde estaba el usuario.)
-    if ($('halftone_enabled').checked && S.previewBg !== 'checker'){
-      setPreviewBg('checker');
-    }
-    scheduleProcess(0);
-  });
-  syncHalftoneUi();
+  // Halftone is always on (the toggle UI was removed); the hidden
+  // checkbox stays `checked` so readParams/download keep working.
 
   // ==================================================================
   //   PIPELINE · Parámetros
@@ -1825,7 +2494,9 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       angleDeg:   parseFloat($('angle').value),
       minDotMm:   Math.max(0, parseFloat($('min_dot_mm').value)),
       softEdges:  $('soft_edges').checked,
-      halftoneOn: $('halftone_enabled').checked,
+      // Halftone only renders on the explicit "Process now" click
+      // (which sets S.halftoneActive=true) or on Download (forFinal).
+      halftoneOn: forFinal || S.halftoneActive,
       // Salida
       newWcm:     parseFloat($('new_w_cm').value) || 0,
       newHcm:     parseFloat($('new_h_cm').value) || 0,
@@ -2138,14 +2809,43 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   // ==================================================================
   //   RENDER PRINCIPAL
   // ==================================================================
+  // Synchronous fallback (worker unavailable / failed). Same pipeline,
+  // but runs on the main thread. Receives the already-resized `work`
+  // canvas and the already-read params `p`.
+  function runProcessSync(work, p){
+    const wctx = work.getContext('2d');
+    const imgData = wctx.getImageData(0, 0, work.width, work.height);
+    let data = imgData.data;
+    applyBrightnessInPlace(data, p.brightness);
+    applyContrastInPlace(data, p.contrast);
+    if (p.sharpness !== 1) data = applySharpness(data, work.width, work.height, p.sharpness);
+    const N = work.width * work.height;
+    const baseAlpha = new Uint8ClampedArray(N);
+    for (let i = 0; i < N; i++) baseAlpha[i] = data[i*4 + 3];
+    const isColorMode = p.separationMode === 'color' && p.garmentLab;
+    const tone = isColorMode
+      ? toneFromColorDistance(data, work.width, work.height, p.garmentLab, p.colorTol, p.colorFeather, p.colorChroma, p.preserveLuma, p.gamma)
+      : toneFromLuminance(data, work.width, work.height, p.blackCut, p.whiteCut, p.gamma);
+    let screenAlpha = null;
+    if (p.halftoneOn) screenAlpha = makeHalftoneAlpha(tone, work.width, work.height, p);
+    const finalAlpha = new Uint8ClampedArray(N);
+    for (let i = 0; i < N; i++){
+      let a = baseAlpha[i];
+      if (screenAlpha && screenAlpha[i] < a) a = screenAlpha[i];
+      finalAlpha[i] = a;
+      data[i*4 + 3] = a;
+    }
+    return { colorData: new Uint8ClampedArray(data), finalAlpha, tone };
+  }
+
   async function runProcess(forFinal=false){
     if (!S.sourceCanvas) return;
     const t0 = performance.now();
     const p = readParams(forFinal);
 
     // Tamaño base destino
-    let targetW = Math.max(1, Math.round(p.newWcm / INCH_CM * p.targetDpi));
-    let targetH = Math.max(1, Math.round(p.newHcm / INCH_CM * p.targetDpi));
+    let targetW = Math.max(1, Math.round(p.newWcm * p.targetDpi));
+    let targetH = Math.max(1, Math.round(p.newHcm * p.targetDpi));
 
     // Cap de calidad rápida
     if (p.fastMode){
@@ -2170,76 +2870,59 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     }
     beforeCv.getContext('2d').drawImage(work, 0, 0);
 
-    // 3) Pixeles + ajustes tonales (brillo/contraste/nitidez aplican SIEMPRE,
-    //    sea cual sea el modo de separación).
+    // 3) Pixeles + ajustes tonales y separación: TODO esto se hace en
+    //    el Web Worker para no congelar la UI durante el procesamiento.
+    //    El main thread solo orquesta y pinta el resultado al final.
     const wctx = work.getContext('2d');
-    let imgData = wctx.getImageData(0, 0, work.width, work.height);
-    let data = imgData.data;
-    applyBrightnessInPlace(data, p.brightness);
-    applyContrastInPlace(data, p.contrast);
-    if (p.sharpness !== 1) data = applySharpness(data, work.width, work.height, p.sharpness);
-
+    const imgData = wctx.getImageData(0, 0, work.width, work.height);
     const N = work.width * work.height;
 
-    // 4) Alpha base = alpha original del arte
-    const baseAlpha = new Uint8ClampedArray(N);
-    for (let i = 0; i < N; i++) baseAlpha[i] = data[i*4 + 3];
+    const workerParams = {
+      brightness: p.brightness,
+      contrast: p.contrast,
+      sharpness: p.sharpness,
+      separationMode: p.separationMode,
+      garmentLab: p.garmentLab,
+      colorTol: p.colorTol,
+      colorFeather: p.colorFeather,
+      colorChroma: p.colorChroma,
+      preserveLuma: p.preserveLuma,
+      blackCut: p.blackCut,
+      whiteCut: p.whiteCut,
+      gamma: p.gamma,
+      halftoneOn: p.halftoneOn,
+      lpi: p.lpi,
+      angleDeg: p.angleDeg,
+      minDotMm: p.minDotMm,
+      softEdges: p.softEdges,
+      targetDpi: p.targetDpi,
+    };
 
-    // 5) Calcular TONO (0..1) + ALPHA del screen, SOLO si el semitono
-    //    está ACTIVADO. Sin halftone, el alpha original pasa intacto en
-    //    cualquier modo: cambiar de modo no destruye la imagen, solo
-    //    define CÓMO se hará la separación cuando se active el semitono.
-    //
-    //   MODO LUMINANCIA (prenda negra):
-    //     tono = (luminancia − blackCut) / (whiteCut − blackCut)
-    //     0 = oscuro → transparente (lo cubre la prenda negra)
-    //     1 = claro  → tinta sólida
-    //
-    //   MODO COLOR (prenda de color):
-    //     tono = (Δ_OKLab(pixel, prenda) − tol) / feather
-    //     0 = pixel idéntico a la prenda → transparente
-    //     1 = pixel muy distinto         → tinta sólida
-    //     intermedio = zona de transición → AQUÍ aparece el semitono
-    //   Calculamos el tono SIEMPRE (también sin halftone) porque la pestaña
-    //   "Zonas" lo necesita para pintar el heatmap UX. Computar el tono es
-    //   barato (~unos pocos ms) y el screen AM solo se invoca si halftone
-    //   está activado.
-    const isColorMode = p.separationMode === 'color' && p.garmentLab;
-    const tone = isColorMode
-      ? toneFromColorDistance(
-          data, work.width, work.height,
-          p.garmentLab, p.colorTol, p.colorFeather,
-          p.colorChroma, p.preserveLuma, p.gamma,
-        )
-      : toneFromLuminance(
-          data, work.width, work.height,
-          p.blackCut, p.whiteCut, p.gamma,
-        );
-    let screenAlpha = null;
-    if (p.halftoneOn){
-      screenAlpha = makeHalftoneAlpha(tone, work.width, work.height, p);
+    let colorData, finalAlpha, tone;
+    const workerPromise = runInWorker(imgData.data, work.width, work.height, workerParams);
+    if (workerPromise){
+      try {
+        const r = await workerPromise;
+        colorData = r.colorData;
+        finalAlpha = r.alphaArray;
+        tone = r.tone;
+      } catch (err){
+        // Worker failed mid-flight → recompute on main thread as fallback.
+        console.warn('Worker run failed, falling back:', err.message);
+        const fb = runProcessSync(work, p);
+        colorData = fb.colorData; finalAlpha = fb.finalAlpha; tone = fb.tone;
+      }
+    } else {
+      const fb = runProcessSync(work, p);
+      colorData = fb.colorData; finalAlpha = fb.finalAlpha; tone = fb.tone;
     }
 
-    // 6) Composición final: combinar alpha original con el alpha del screen.
-    //    Tomamos el mínimo para que ni el original ni el screen impongan
-    //    pixels donde el otro decidió transparencia. Si no hay screen,
-    //    el alpha queda intacto.
-    const finalAlpha = new Uint8ClampedArray(N);
-    for (let i = 0; i < N; i++){
-      let a = baseAlpha[i];
-      if (screenAlpha && screenAlpha[i] < a) a = screenAlpha[i];
-      finalAlpha[i] = a;
-      data[i*4 + 3] = a;
-    }
-
-    // Guardamos los datos para repintar entre modos sin reprocesar.
-    // `tone` se guarda para que la pestaña Zonas pinte el heatmap UX.
     S.lastResult = {
       w: work.width, h: work.height,
       dpi: p.targetDpi,
-      colorData: new Uint8ClampedArray(data),
+      colorData,
       alphaArray: finalAlpha,
-      tone: tone,
+      tone,
       fastMode: p.fastMode,
       halftoneOn: p.halftoneOn,
     };
@@ -2253,10 +2936,11 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     if (S.firstResult){ S.firstResult = false; fitToView(); } else { applyTransform(); updateHud(); }
     enableDownload();
 
-    const mode = p.halftoneOn ? 'semitono' : 'ajustes';
-    const sep = p.separationMode === 'color' ? `color (${S.garmentColor.hex})` : 'luminancia';
-    const tag = p.fastMode ? ` (vista rápida ${work.width}×${work.height})` : '';
-    setStatus(`Actualizado en ${((performance.now()-t0)|0)} ms · ${sep} · ${mode}${tag}`);
+    const mode = p.halftoneOn ? 'halftone' : 'adjusted';
+    const sep = p.separationMode === 'color' ? `color (${S.garmentColor.hex})` : 'luminance';
+    const tag = p.fastMode ? ` (fast preview ${work.width}×${work.height})` : '';
+    setStatus(T(`Updated in ${((performance.now()-t0)|0)} ms · ${sep} · ${mode}${tag}`,
+                `Actualizado en ${((performance.now()-t0)|0)} ms · ${sep} · ${mode}${tag}`));
   }
 
   // Repinta el canvas visible con el resultado procesado en color.
@@ -2280,36 +2964,71 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   $('soft_edges').addEventListener('change', () => scheduleProcess());
 
   let debounceTimer = null;
-  let inFlight = false;
-  let pending  = false;
+  // Serialized run queue:
+  //   · `runChain` is the promise tail — every run appends to it so they
+  //     execute strictly in order (and inside, only one is "in flight").
+  //   · Preview runs coalesce: while a preview is already queued, further
+  //     preview requests share the same pending promise (the queued run
+  //     will pick up the latest slider values when it executes).
+  //   · Final runs (forFinal=true, used by Download) are NEVER coalesced.
+  //     `await runOnce(true)` is guaranteed to resolve only AFTER an actual
+  //     full-quality pass has completed against the current params.
+  let runChain = Promise.resolve();
+  let queuedPreview = null;
 
   function scheduleProcess(delayMs){
     if (!S.sourceCanvas) return;
+    // Note: we intentionally do NOT reset S.halftoneActive here.
+    // Once the user has clicked "Process now", subsequent slider
+    // tweaks keep the halftone applied so they can fine-tune against
+    // the actual screened result instead of flipping back to the raw
+    // cleaned preview every time. halftoneActive only resets when a
+    // new image is loaded (resetUploadState / loadAndInspect).
     const d = (delayMs == null) ? 180 : delayMs;
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => runOnce(), d);
-  }
-  async function runOnce(forFinal=false){
-    if (inFlight){ pending = true; return; }
-    inFlight = true;
-    $('vt_busy').classList.add('on');
-    setStatus(forFinal ? 'Procesando calidad completa...' : 'Procesando...', 'busy');
-    try {
-      await new Promise(r => requestAnimationFrame(r));
-      await runProcess(forFinal);
-    } catch(err){
-      console.error(err);
-      setStatus('Error: ' + err.message, 'err');
-    } finally {
-      inFlight = false;
-      $('vt_busy').classList.remove('on');
-      if (pending){ pending = false; runOnce(); }
-    }
+    debounceTimer = setTimeout(() => runOnce(false), d);
   }
 
-  $('btn-process').addEventListener('click', () => {
+  function runOnce(forFinal=false){
+    if (!forFinal && queuedPreview) return queuedPreview;
+    const run = runChain.then(async () => {
+      if (!forFinal) queuedPreview = null;
+      if (!S.sourceCanvas) return;
+      $('vt_busy').classList.add('on');
+      setStatus(forFinal ? T('Processing full quality...', 'Procesando calidad completa...') : T('Processing...', 'Procesando...'), 'busy');
+      try {
+        await new Promise(r => requestAnimationFrame(r));
+        await runProcess(forFinal);
+      } catch (err) {
+        console.error(err);
+        setStatus(T('Error: ','Error: ') + err.message, 'err');
+      } finally {
+        $('vt_busy').classList.remove('on');
+      }
+    });
+    runChain = run.catch(() => {});
+    if (!forFinal) queuedPreview = run;
+    return run;
+  }
+
+  $('btn-process').addEventListener('click', async () => {
     clearTimeout(debounceTimer);
-    runOnce();
+    // Explicit user intent → apply halftone for this pass.
+    S.halftoneActive = true;
+    await runOnce();
+    // Second pass: if the halftone cleared away a solid ink block that
+    // surrounded the artwork, the result now has new transparent
+    // borders. Auto-retrim the SOURCE to the result's tight bbox and
+    // process once more so the exported file is pixel-tight. Gated on
+    // the same "auto-trim" toggle the user already controls in Step 1.
+    const autoTrim = $('auto_trim');
+    if (autoTrim && autoTrim.checked){
+      const trimmed = autoTrimSourceFromResult();
+      if (trimmed){
+        setStatus(T('Auto-retrimming to halftone bounds…', 'Recortando a los límites del semitono…'), 'busy');
+        await runOnce();
+      }
+    }
   });
 
   // ==================================================================
@@ -2318,7 +3037,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   $('download').addEventListener('click', async (e) => {
     e.preventDefault();
     if (!S.sourceCanvas) return;
-    setStatus('Generando PNG calidad completa...', 'busy');
+    setStatus(T('Generating full quality PNG...', 'Generando PNG en calidad completa...'), 'busy');
     try {
       await runOnce(true);
       paintResultCanvas();
@@ -2329,15 +3048,16 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       const finalBlob = new Blob([withDpi], { type: 'image/png' });
       const url = URL.createObjectURL(finalBlob);
       const a = document.createElement('a');
-      const tag = $('halftone_enabled').checked ? 'semitono' : 'ajustado';
+      const tag = $('halftone_enabled').checked ? 'halftone' : 'adjusted';
       a.href = url;
       a.download = `${S.fileName}_${tag}.png`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
-      setStatus(`PNG generado (${(finalBlob.size/1024).toFixed(0)} KB) · ${S.lastResult.w}×${S.lastResult.h}px · DPI ${Math.round(S.lastResult.dpi)}.`);
+      setStatus(T(`PNG generated (${(finalBlob.size/1024).toFixed(0)} KB) · ${S.lastResult.w}×${S.lastResult.h}px · DPI ${Math.round(S.lastResult.dpi)}.`,
+                  `PNG generado (${(finalBlob.size/1024).toFixed(0)} KB) · ${S.lastResult.w}×${S.lastResult.h}px · DPI ${Math.round(S.lastResult.dpi)}.`));
     } catch(err){
       console.error(err);
-      setStatus('Error generando PNG: ' + err.message, 'err');
+      setStatus(T('Error generating PNG: ', 'Error al generar PNG: ') + err.message, 'err');
     }
   });
 
@@ -2393,14 +3113,28 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     $('vt_zoom_lvl').textContent = (view.scale * 100).toFixed(0) + '%';
     updateHud();
   }
-  function fitToView(padding=0.94){
+  // fitToView: scale the design so it almost fills the viewer with
+  // just a hair of breathing room around it. Previously this used 0.94
+  // (a noticeable 6% margin per side), which made small/squarish
+  // designs look lost on tall viewers. We now leave just ~6 px of pad
+  // total, computed from the actual viewer size, so the design always
+  // hugs the frame.
+  function fitToView(padFraction){
     if (!resultCanvas.width || !resultCanvas.height) return;
     const iw = resultCanvas.width, ih = resultCanvas.height;
     const vw = viewer.clientWidth, vh = viewer.clientHeight;
-    const k = Math.min(vw/iw, vh/ih) * padding;
+    // Reserve a tiny constant padding (3 px each side) instead of a
+    // proportional one so big and small viewers behave consistently.
+    const padPx = 3;
+    const availW = Math.max(1, vw - padPx * 2);
+    const availH = Math.max(1, vh - padPx * 2);
+    let k = Math.min(availW / iw, availH / ih);
+    // If a caller passed an explicit padFraction (legacy uses), honor
+    // it as a multiplier on top — keeps backward compatibility.
+    if (typeof padFraction === 'number') k *= padFraction;
     view.scale = k;
-    view.x = (vw - iw*k) / 2;
-    view.y = (vh - ih*k) / 2;
+    view.x = (vw - iw * k) / 2;
+    view.y = (vh - ih * k) / 2;
     applyTransform();
   }
   function setZoomAt(newScale, cx, cy){
@@ -2417,7 +3151,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   function updateHud(){
     if (!resultCanvas.width) return;
     const r = S.lastResult;
-    const sizeTag = r && r.fastMode ? ' · vista rápida' : '';
+    const sizeTag = r && r.fastMode ? ' · fast preview' : '';
     $('vt_hud').textContent = `${resultCanvas.width}×${resultCanvas.height}px · ${(view.scale*100).toFixed(0)}%${sizeTag}`;
   }
 
@@ -2432,50 +3166,122 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     setZoomAt(view.scale * factor, cx, cy);
   }, { passive: false });
 
-  // Pan
+  // ==================================================================
+  //   PAN + PINCH ZOOM — Pointer Events (mouse + touch + pen unified)
+  // ==================================================================
+  //   One handler set serves desktop mouse, touch and stylus. With 1
+  //   pointer down we pan; with 2 pointers down we pinch-zoom around
+  //   the midpoint between fingers. setPointerCapture keeps tracking
+  //   even when the finger drifts outside the viewer.
+  // ==================================================================
+  const pointers = new Map();  // pointerId -> {x, y}
   let dragging = false, dragStart = null;
-  viewer.addEventListener('mousedown', (e) => {
+  let pinchStartDist = 0, pinchStartScale = 1, pinchCenter = null;
+
+  function pinchPoints(){
+    const pts = [];
+    for (const p of pointers.values()) pts.push(p);
+    return pts;
+  }
+
+  viewer.addEventListener('pointerdown', (e) => {
     if (!viewer.classList.contains('has-image')) return;
-    if (e.button !== 0 && e.button !== 1) return;
-    // Si el gotero está activo, este clic SOLO toma color y consume el evento.
-    if (S.pickingGarment && e.button === 0){
+    // Ignore taps on overlay UI (toolbar, HUD, busy indicator, legends, etc.).
+    // Otherwise viewer.setPointerCapture() steals the subsequent `click`
+    // event from buttons sitting on top of the viewer (e.g. the preview-bg
+    // swatches), and their handlers never fire.
+    if (e.target.closest('.viewer-toolbar, .viewer-hud, .viewer-busy, .zones-legend, .pick-hint')) return;
+    // Allow left-mouse, touch, pen. Ignore right-click & middle for pan logic.
+    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+
+    // Eyedropper consumes the tap and returns; no pan/zoom.
+    if (S.pickingGarment && (e.pointerType !== 'mouse' || e.button === 0)){
       e.preventDefault();
       const rgb = sampleColorAtClient(e.clientX, e.clientY);
       if (rgb){
         const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-        // Tomar color con gotero implica que el usuario quiere un color custom
         S.garmentPreset = 'custom';
         applyGarmentPreset('custom');
         setGarmentColorFromHex(hex);
-        // Mostrar swatch del color tomado
         const pp = $('pickedPreview');
         $('ppChip').style.background = hex;
-        $('ppLabel').textContent = `Color tomado: ${hex.toUpperCase()}`;
+        $('ppLabel').textContent = T(`Color picked: ${hex.toUpperCase()}`, `Color elegido: ${hex.toUpperCase()}`);
         pp.style.display = 'inline-flex';
-        setStatus(`Color tomado: ${hex.toUpperCase()}`, 'ok');
+        setStatus(T(`Color picked: ${hex.toUpperCase()}`, `Color elegido: ${hex.toUpperCase()}`), 'ok');
       } else {
-        setStatus('No se pudo leer ese punto. Probá otra zona de la imagen.', 'err');
+        setStatus(T('Could not read that point. Try another area of the image.',
+                    'No pude leer ese punto. Prueba otra zona de la imagen.'), 'err');
       }
       setPickingGarment(false);
       return;
     }
+
     e.preventDefault();
-    dragging = true;
-    dragStart = { x: e.clientX - view.x, y: e.clientY - view.y };
-    viewer.classList.add('grabbing');
+    try { viewer.setPointerCapture(e.pointerId); } catch(_){}
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size === 1){
+      dragging = true;
+      dragStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+      viewer.classList.add('grabbing');
+    } else if (pointers.size === 2){
+      // Switch from pan to pinch
+      dragging = false;
+      const pts = pinchPoints();
+      pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      pinchStartScale = view.scale;
+      const rect = viewer.getBoundingClientRect();
+      pinchCenter = {
+        x: (pts[0].x + pts[1].x) / 2 - rect.left,
+        y: (pts[0].y + pts[1].y) / 2 - rect.top,
+      };
+    }
   });
-  window.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    view.x = e.clientX - dragStart.x;
-    view.y = e.clientY - dragStart.y;
-    applyTransform();
+
+  viewer.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size >= 2 && pinchCenter){
+      const pts = pinchPoints();
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      const newScale = pinchStartScale * (d / pinchStartDist);
+      setZoomAt(newScale, pinchCenter.x, pinchCenter.y);
+    } else if (pointers.size === 1 && dragging){
+      view.x = e.clientX - dragStart.x;
+      view.y = e.clientY - dragStart.y;
+      applyTransform();
+    }
   });
-  window.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    viewer.classList.remove('grabbing');
-  });
+
+  function endPointer(e){
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    try { viewer.releasePointerCapture(e.pointerId); } catch(_){}
+    if (pointers.size < 2){
+      pinchCenter = null;
+      pinchStartDist = 0;
+    }
+    if (pointers.size === 0){
+      dragging = false;
+      viewer.classList.remove('grabbing');
+    } else if (pointers.size === 1){
+      // Resume single-pointer pan from the remaining finger
+      const p = pinchPoints()[0];
+      dragging = true;
+      dragStart = { x: p.x - view.x, y: p.y - view.y };
+    }
+  }
+  viewer.addEventListener('pointerup', endPointer);
+  viewer.addEventListener('pointercancel', endPointer);
+  // Note: no pointerleave handler — setPointerCapture means we keep
+  // receiving moves even when the pointer drifts outside the viewer.
+  // Treating leave as terminal would prematurely cancel valid drags.
+
   viewer.addEventListener('dblclick', () => fitToView());
+
+  // Disable browser pinch/scroll on the viewer itself — we handle it.
+  viewer.style.touchAction = 'none';
 
   // Teclado
   document.addEventListener('keydown', (e) => {
@@ -2674,7 +3480,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   }
   $('btn-pick-garment').addEventListener('click', () => {
     if (!S.sourceCanvas){
-      setStatus('Carga primero una imagen para tomar color.', 'err');
+      setStatus(T('Load an image first to pick a color.',
+                  'Carga una imagen primero para elegir un color.'), 'err');
       return;
     }
     setPickingGarment(!S.pickingGarment);
@@ -2837,6 +3644,511 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   //      cambia a vista de prenda al hacer clic en un preset.
   applyGarmentPreset('negra');
   setPreviewBg('checker');
+
+  // ==================================================================
+  //   I18N — English / Español
+  // ==================================================================
+  //   Two-language system. Defaults to Spanish when the user's IANA
+  //   timezone is Mexico-based (zero-cost detection, no geolocation
+  //   API needed), English everywhere else. The choice persists in
+  //   localStorage so a manual override survives page reloads.
+  //
+  //   All translatable static strings are defined in TRANSLATIONS as
+  //   [selector, EN, ES, optional attr]. Dynamic strings (status
+  //   messages, color readouts) use the inline T(en, es) helper.
+  // ==================================================================
+  let LANG = 'en';
+  function T(en, es){ return LANG === 'es' ? es : en; }
+  // textOnly:true means replace only the trailing text node (lets us
+  // translate "<svg/>Change design" without losing the SVG).
+  const TRANSLATIONS = [
+    // ---- Mode switch ----
+    { sel: '.ux-mode-btn[data-ux="simple"] > span',   en: 'Simple',   es: 'Simple' },
+    { sel: '.ux-mode-btn[data-ux="advanced"] > span', en: 'Advanced', es: 'Avanzado' },
+
+    // ---- Card 1: Upload & Prepare ----
+    { sel: '#card-prep > h2',  en: 'Upload & Prepare', es: 'Subir y preparar' },
+    { sel: '.dz-title',        en: 'Drop your design here', es: 'Arrastra tu diseño aquí' },
+    { sel: '.dz-sub',          en: 'or ', es: 'o ', textOnly: true },
+    { sel: '.dz-link',         en: 'click to upload', es: 'haz clic para subir' },
+    { sel: '.dz-hint',         en: ' Ideal: PNG at 300 DPI with transparency for DTF',
+                                es: ' Ideal: PNG a 300 DPI con transparencia para DTF', textOnly: true },
+    { sel: '#btn-sample',      en: 'First time? Try with a sample image →',
+                                es: '¿Primera vez? Prueba con una imagen de muestra →' },
+    { sel: '.dz-overlay.dz-loading > span', en: 'Analyzing image…', es: 'Analizando imagen…' },
+    { sel: '#dz_error_msg',    en: 'Could not load image', es: 'No se pudo cargar la imagen' },
+    { sel: '#dragOverlay .drag-overlay-box', en: ' Drop your image here',
+                                es: ' Suelta tu imagen aquí', textOnly: true },
+    { sel: '#fcAlphaBadge', attr: 'title', en: 'Has transparency', es: 'Tiene transparencia' },
+    { sel: '#btn-change',      en: ' Change design', es: ' Cambiar diseño', textOnly: true },
+    { sel: '#btn-change', attr: 'title', en: 'Upload another image', es: 'Subir otra imagen' },
+    { sel: '#btn-reprocess',   en: ' Reprocess', es: ' Reprocesar', textOnly: true },
+    { sel: '#btn-reprocess', attr: 'title', en: 'Reprocess with current parameters',
+                                              es: 'Reprocesar con los parámetros actuales' },
+    { sel: '#btn-remove', attr: 'title', en: 'Remove image', es: 'Eliminar imagen' },
+    { sel: '#prep-block h3:nth-of-type(1)', en: 'Target size', es: 'Tamaño destino' },
+    { labelFor: 'lock_ratio', en: ' Lock aspect ratio', es: ' Bloquear proporción', textOnly: true },
+    { sel: '#prep-block h3:nth-of-type(2)', en: 'Working DPI', es: 'DPI de trabajo' },
+    { labelFor: 'fast_mode', childSel: 'span', en: 'Fast quality (preview)', es: 'Calidad rápida (vista previa)' },
+    { sel: '#i_target_px',  attr: '__sibling_label__', en: 'Output in pixels', es: 'Salida en píxeles' },
+    { sel: '#i_scale',      attr: '__sibling_label__', en: 'Scale factor', es: 'Factor de escala' },
+    { sel: '#i_fast_px',    attr: '__sibling_label__', en: 'Preview active', es: 'Vista previa activa' },
+
+    // ---- Card 2: Image Adjustments ----
+    { sel: '#card-tonal > h2', en: 'Image Adjustments', es: 'Ajustes de imagen' },
+    { labelFor: 'brightness', en: 'Brightness ', es: 'Brillo ', textOnly: true },
+    { labelFor: 'contrast',   en: 'Contrast ',   es: 'Contraste ', textOnly: true },
+    { labelFor: 'sharpness',  en: 'Sharpness ',  es: 'Nitidez ', textOnly: true },
+
+    // ---- Card 3: Garment ----
+    { sel: '#card-garment > h2', en: 'Your Garment', es: 'Tu prenda' },
+    { sel: '#card-garment .section-title:first-of-type', en: 'Choose your garment', es: 'Elige tu prenda' },
+    { sel: '.g-type[data-preset="negra"]',  en: 'Black',        es: 'Negra',  textOnly: true },
+    { sel: '.g-type[data-preset="blanca"]', en: 'White',        es: 'Blanca', textOnly: true },
+    { sel: '.g-type[data-preset="roja"]',   en: 'Red',          es: 'Roja',   textOnly: true },
+    { sel: '.g-type[data-preset="azul"]',   en: 'Blue',         es: 'Azul',   textOnly: true },
+    { sel: '.g-type[data-preset="gris"]',   en: 'Gray',         es: 'Gris',   textOnly: true },
+    { sel: '.g-type[data-preset="beige"]',  en: 'Beige',        es: 'Beige',  textOnly: true },
+    { sel: '.g-type[data-preset="verde"]',  en: 'Green',        es: 'Verde',  textOnly: true },
+    { sel: '.g-type[data-preset="custom"]', en: 'Other color',  es: 'Otro color', textOnly: true },
+    { sel: '#btn-auto-detect > span',  en: 'Detect color', es: 'Detectar color' },
+    { sel: '#btn-auto-detect', attr: 'title',
+        en: 'Analyzes image edges and suggests the dominant garment color',
+        es: 'Analiza los bordes de la imagen y sugiere el color de prenda dominante' },
+    { sel: '#btn-pick-garment > span', en: 'Pick from image', es: 'Elegir de la imagen' },
+    { sel: '#btn-pick-garment', attr: 'title',
+        en: 'Click a pixel on the image to use that color as the garment',
+        es: 'Haz clic en un píxel de la imagen para usar ese color como prenda' },
+    { sel: '#ppLabel', en: 'Color picked', es: 'Color elegido' },
+    { labelFor: 's_remove', en: 'How much to remove ', es: 'Cuánto eliminar ', textOnly: true },
+    { labelFor: 's_spread', en: 'Halftone amount ',   es: 'Cantidad de semitono ', textOnly: true },
+    { sel: '#card-garment .advanced-only .section-title', en: 'Separation mode', es: 'Modo de separación' },
+    { sel: '.mode-btn[data-mode="luminance"] > span:first-child', en: 'By luminance', es: 'Por luminancia' },
+    { sel: '.mode-btn[data-mode="luminance"] .mode-tag', en: 'black garment', es: 'prenda negra' },
+    { sel: '.mode-btn[data-mode="color"] > span:first-child', en: 'By color', es: 'Por color' },
+    { sel: '.mode-btn[data-mode="color"] .mode-tag', en: 'colored garment', es: 'prenda de color' },
+    { labelFor: 'gamma',         en: 'Gamma ', es: 'Gamma ', textOnly: true },
+    { labelFor: 'black_cut',     en: 'Black cut ', es: 'Corte de negros ', textOnly: true },
+    { labelFor: 'white_cut',     en: 'White cut ', es: 'Corte de blancos ', textOnly: true },
+    { labelFor: 'color_tol',     en: 'Tolerance ', es: 'Tolerancia ', textOnly: true },
+    { labelFor: 'color_feather', en: 'Transition zone ', es: 'Banda de transición ', textOnly: true },
+    { labelFor: 'color_chroma',  en: 'Color sensitivity ', es: 'Sensibilidad de color ', textOnly: true },
+    { labelFor: 'preserve_luma', childSel: 'span', en: 'Preserve luminosity', es: 'Preservar luminosidad' },
+
+    // ---- Card 4: Halftone / Print ----
+    { sel: '#card-screen > h2', en: 'Halftone / Print', es: 'Semitono / Impresión' },
+    { labelFor: 'lpi',        en: 'Screen ruling (LPI) ', es: 'Lineatura (LPI) ', textOnly: true },
+    { labelFor: 'angle',      en: 'Angle ', es: 'Ángulo ', textOnly: true },
+    { labelFor: 'min_dot_mm', en: 'Minimum dot (mm) ', es: 'Punto mínimo (mm) ', textOnly: true },
+    { sel: '#min_dot_warn', en: '⚠ Below the DTF production floor (~0.15 mm). Dots this small may not transfer on standard printers.',
+                            es: '⚠ Por debajo del mínimo de producción DTF (~0.15 mm). Puntos tan pequeños pueden no transferirse en impresoras estándar.' },
+    { labelFor: 'soft_edges', childSel: 'span', en: 'Anti-alias on dot edges', es: 'Anti-alias en los bordes' },
+    { sel: '#btn-process',   en: 'Process design',   es: 'Procesar diseño' },
+    { sel: '#btn-process-2', en: 'Process design',   es: 'Procesar diseño' },
+    { sel: '#download > button',   en: 'Download transparent PNG (full quality)',
+                                    es: 'Descargar PNG transparente (calidad completa)' },
+    { sel: '#download-2 > button', en: 'Download PNG (full quality)',
+                                    es: 'Descargar PNG (calidad completa)' },
+
+    // ---- Viewer ----
+    { sel: '.vtab[data-view="result"]',   en: 'Result',   es: 'Resultado' },
+    { sel: '.vtab[data-view="result"]', attr: 'title',
+        en: 'Final design with transparency applied', es: 'Diseño final con transparencia aplicada' },
+    { sel: '.vtab[data-view="original"]', en: 'Original', es: 'Original' },
+    { sel: '.vtab[data-view="original"]', attr: 'title',
+        en: 'Original image without separation', es: 'Imagen original sin separación' },
+    { sel: '.vtab[data-view="mask"]',     en: 'Mask', es: 'Máscara' },
+    { sel: '.vtab[data-view="mask"]', attr: 'title',
+        en: 'Alpha channel (white = prints, black = transparent)',
+        es: 'Canal alfa (blanco = imprime, negro = transparente)' },
+    { sel: '.vtab[data-view="zones"]',    en: 'Zones', es: 'Zonas' },
+    { sel: '.vtab[data-view="zones"]', attr: 'title',
+        en: 'Visual map: red = removed, orange = halftoned, green = solid',
+        es: 'Mapa visual: rojo = eliminado, naranja = semitono, verde = sólido' },
+    { sel: '.viewer-legend .lg-chip:nth-child(1)', en: ' Removed',   es: ' Eliminado',     textOnly: true },
+    { sel: '.viewer-legend .lg-chip:nth-child(2)', en: ' Halftone',  es: ' Semitono',      textOnly: true },
+    { sel: '.viewer-legend .lg-chip:nth-child(3)', en: ' Solid ink', es: ' Tinta sólida',  textOnly: true },
+    { sel: '#vt_busy', en: 'Processing', es: 'Procesando' },
+    { sel: '.viewer .pick-hint',  en: '🎯 Click on the image to pick the garment color (Esc to cancel)',
+                                   es: '🎯 Haz clic en la imagen para elegir el color de prenda (Esc para cancelar)' },
+    { sel: '.viewer .placeholder', en: 'Upload or drag an image to start',
+                                   es: 'Sube o arrastra una imagen para empezar' },
+    { sel: '#vt_wipe', attr: 'title', en: 'Before / after compare (W)', es: 'Comparar antes / después (W)' },
+    { sel: '#vt_zoom_out', attr: 'title', en: 'Zoom out (-)', es: 'Alejar (-)' },
+    { sel: '#vt_zoom_in',  attr: 'title', en: 'Zoom in (+)', es: 'Acercar (+)' },
+    { sel: '#vt_fit',  attr: 'title', en: 'Fit to view (0)', es: 'Ajustar (0)' },
+    { sel: '#vt_100',  attr: 'title', en: 'Actual size 100% (1)', es: 'Tamaño real 100% (1)' },
+  ];
+  // For "__sibling_label__" entries above, translate the <span> sibling
+  // inside the same .kv row that precedes the <b id="…"> reference.
+  function applyLang(lang){
+    LANG = (lang === 'es') ? 'es' : 'en';
+    document.documentElement.lang = LANG;
+    try { localStorage.setItem('vk_lang', LANG); } catch(_){}
+
+    // Resolve a translation entry to a NodeList. Supports:
+    //   - sel: any CSS selector
+    //   - labelFor: find the <label> that owns input#<id>. Works for
+    //     wrapped toggles (<label><input id=…>) AND sibling patterns
+    //     (<label>…</label><input id=…>) — the actual DOM uses both.
+    function resolve(t){
+      if (t.labelFor){
+        const input = document.getElementById(t.labelFor);
+        if (!input) return [];
+        let lbl = input.closest('label');
+        if (!lbl){
+          // Walk backwards through siblings to the nearest <label>.
+          let n = input.previousElementSibling;
+          while (n && n.tagName !== 'LABEL') n = n.previousElementSibling;
+          lbl = n;
+        }
+        return lbl ? [lbl] : [];
+      }
+      return Array.from(document.querySelectorAll(t.sel));
+    }
+    TRANSLATIONS.forEach((t) => {
+      const value = t[LANG] != null ? t[LANG] : t.en;
+      let els = resolve(t);
+      // If a childSel is provided, narrow each match to that descendant.
+      if (t.childSel){
+        els = els.flatMap((el) => Array.from(el.querySelectorAll(t.childSel)));
+      }
+      els.forEach((el) => {
+        if (t.attr === '__sibling_label__'){
+          // Locate the <span> in the same .kv row (preceding sibling)
+          const row = el.closest('.kv');
+          const span = row && row.querySelector('span');
+          if (span) span.textContent = value;
+          return;
+        }
+        if (t.attr){
+          el.setAttribute(t.attr, value);
+          return;
+        }
+        if (t.textOnly){
+          // Replace the LAST text node only — preserves child SVGs/spans.
+          for (let i = el.childNodes.length - 1; i >= 0; i--){
+            const n = el.childNodes[i];
+            if (n.nodeType === 3){ n.nodeValue = value; return; }
+          }
+          // Fallback: append text node.
+          el.appendChild(document.createTextNode(value));
+          return;
+        }
+        el.textContent = value;
+      });
+    });
+
+    // Refresh dynamic UI that re-paints based on language.
+    if (typeof refreshSliderWord === 'function'){
+      refreshSliderWord('s_remove');
+      refreshSliderWord('s_spread');
+    }
+    // Status strip: re-render whatever it currently shows so dynamic
+    // labels (Ready / Working / Done / Upload an image…) get translated.
+    if (typeof refreshStrip === 'function') refreshStrip();
+
+    // Update lang-toggle active state
+    document.querySelectorAll('#langToggle button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.lang === LANG);
+    });
+  }
+  // Lang toggle wiring
+  document.querySelectorAll('#langToggle button').forEach((b) => {
+    b.addEventListener('click', () => applyLang(b.dataset.lang));
+  });
+  // Boot: localStorage > timezone (Mexico → ES, others → EN) > navigator
+  function detectDefaultLang(){
+    try {
+      const saved = localStorage.getItem('vk_lang');
+      if (saved === 'en' || saved === 'es') return saved;
+    } catch(_){}
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      if (/Mexico|Tijuana|Hermosillo|Mazatlan|Chihuahua|Merida|Monterrey|Cancun|Bahia_Banderas|Matamoros|Ojinaga/i.test(tz)) return 'es';
+      // United States timezones (explicit, since the user asked for US → EN)
+      if (/America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Adak|Boise|Detroit|Indiana|Kentucky|Juneau|Sitka|Yakutat|Nome|Honolulu)|Pacific\/Honolulu/i.test(tz)) return 'en';
+    } catch(_){}
+    try {
+      if ((navigator.language || '').toLowerCase().startsWith('es')) return 'es';
+    } catch(_){}
+    return 'en';
+  }
+
+  // ==================================================================
+  //   UX ENHANCEMENTS — sticky CTA, status strip, sliders, sample,
+  //   before/after wipe.
+  //
+  //   All wiring lives here so the heavy code above stays untouched.
+  //   These observers/mirrors are purely additive — they listen to
+  //   existing DOM state and update the new UI surfaces.
+  // ==================================================================
+
+  // -------- Sticky CTA mirror --------
+  // The buttons inside card 4 are the canonical inputs; the sticky bar
+  // forwards clicks to them and mirrors their disabled / visible state.
+  const btnP1 = $('btn-process'), btnP2 = $('btn-process-2');
+  const dl1   = $('download'),    dl2   = $('download-2');
+  if (btnP2) btnP2.addEventListener('click', () => btnP1.click());
+  if (dl2)   dl2.addEventListener('click',   (e) => { e.preventDefault(); dl1.click(); });
+  function syncCta(){
+    if (btnP2) btnP2.disabled = btnP1.disabled;
+    if (dl2)   dl2.style.display = dl1.style.display || 'none';
+  }
+  // Observe the canonical buttons; cheap because they change rarely.
+  new MutationObserver(syncCta).observe(btnP1, { attributes:true, attributeFilter:['disabled'] });
+  new MutationObserver(syncCta).observe(dl1,   { attributes:true, attributeFilter:['style'] });
+  syncCta();
+
+  // "Dirty" indicator: any param change after a successful process
+  // pulses the CTA so the user knows there's something new to re-run.
+  function markCtaDirty(on){
+    if (btnP2) btnP2.classList.toggle('dirty', !!on);
+    if (btnP1) btnP1.classList.toggle('dirty', !!on);
+  }
+  // Hook into every slider/input that triggers scheduleProcess.
+  ['s_remove','s_spread','color_tol','color_feather','color_chroma','gamma',
+   'black_cut','white_cut','brightness','contrast','sharpness','lpi',
+   'angle','min_dot_mm','garment_picker','garment_hex'].forEach((id) => {
+    const el = $(id); if (!el) return;
+    el.addEventListener('input',  () => { if (S.lastResult) markCtaDirty(true); });
+    el.addEventListener('change', () => { if (S.lastResult) markCtaDirty(true); });
+  });
+  // Clearing dirty happens when a process pass completes — patch the
+  // existing btn-process click to clear after its work is done.
+  btnP1.addEventListener('click', () => {
+    // microtask after the existing handler runs (it's async); the next
+    // tick still has S.lastResult fresh from the run.
+    Promise.resolve().then(() => setTimeout(() => markCtaDirty(false), 50));
+  });
+
+  // -------- Status strip --------
+  const ss = $('statusStrip');
+  const ssLabel = $('ss_label'), ssMeta = $('ss_meta'), ssProg = $('ss_prog_bar');
+  function setStrip(state, label, meta){
+    if (!ss) return;
+    ss.classList.remove('ok','busy','err','downloading');
+    if (state) ss.classList.add(state);
+    if (label !== undefined && ssLabel) ssLabel.textContent = label;
+    if (meta  !== undefined && ssMeta)  ssMeta.textContent  = meta;
+  }
+  function ssMetaForResult(){
+    const r = S.lastResult;
+    if (!r) return T('Adjust parameters and press Process design',
+                     'Ajusta los parámetros y pulsa Procesar diseño');
+    const dpi = Math.round(r.dpi || 0);
+    return `${r.w}×${r.h} px · ${dpi} DPI${r.fastMode ? T(' · fast preview', ' · vista previa rápida') : ''}`;
+  }
+  // Track the last strip state so we can re-render it after a language
+  // switch (so "Ready" / "Working" / "Done" follow the active language).
+  let _stripState = { state:'', label:T('Ready','Listo'), meta:T('Upload an image to start','Sube una imagen para empezar') };
+  function refreshStrip(){
+    // Recompute labels in the new language using the stored "kind".
+    const k = _stripState.kind;
+    if (k === 'busy') _stripState.label = T('Working','Procesando');
+    else if (k === 'err') _stripState.label = T('Error','Error');
+    else if (k === 'ok') { _stripState.label = T('Done','Hecho'); _stripState.meta = ssMetaForResult(); }
+    else { _stripState.label = T('Ready','Listo'); _stripState.meta = _stripState.meta || T('Upload an image to start','Sube una imagen para empezar'); }
+    setStrip(_stripState.state, _stripState.label, _stripState.meta);
+  }
+  // Wrap setStatus so the strip reflects the same lifecycle.
+  const _setStatus = setStatus;
+  // eslint-disable-next-line no-func-assign
+  setStatus = function(msg, cls=''){
+    _setStatus(msg, cls);
+    if (!ss) return;
+    if (cls === 'busy'){
+      _stripState = { kind:'busy', state:'busy', label:T('Working','Procesando'), meta:msg };
+    } else if (cls === 'err'){
+      _stripState = { kind:'err',  state:'err',  label:T('Error','Error'), meta:msg };
+    } else if (S.lastResult){
+      _stripState = { kind:'ok',   state:'ok',   label:T('Done','Hecho'),  meta:ssMetaForResult() };
+    } else {
+      _stripState = { kind:'',     state:'',     label:T('Ready','Listo'), meta:msg || T('Upload an image to start','Sube una imagen para empezar') };
+    }
+    setStrip(_stripState.state, _stripState.label, _stripState.meta);
+  };
+  // Initial state
+  setStrip('', T('Ready','Listo'), T('Upload an image to start','Sube una imagen para empezar'));
+
+  // -------- Slider word labels --------
+  function wordFor(name, v){
+    v = Math.max(0, v|0);
+    if (name === 's_remove'){
+      if (v <= 0)  return T('None',     'Ninguna');
+      if (v < 25)  return T('Light',    'Ligera');
+      if (v < 55)  return T('Moderate', 'Moderada');
+      if (v < 85)  return T('Strong',   'Fuerte');
+      return       T('Max',      'Máxima');
+    }
+    if (name === 's_spread'){
+      if (v <= 0)  return T('Hard edge', 'Bordes duros');
+      if (v < 25)  return T('Subtle',    'Sutil');
+      if (v < 55)  return T('Smooth',    'Suave');
+      if (v < 85)  return T('Wide',      'Amplio');
+      return       T('Very soft', 'Muy suave');
+    }
+    return '';
+  }
+  function refreshSliderWord(id){
+    const el = $(id); const out = $('w_' + id);
+    if (!el || !out) return;
+    const v = parseFloat(el.value);
+    out.textContent = wordFor(id, v);
+    out.classList.toggle('muted', Math.max(0, v) === 0);
+  }
+  ['s_remove','s_spread'].forEach((id) => {
+    const el = $(id); if (!el) return;
+    el.addEventListener('input',  () => refreshSliderWord(id));
+    el.addEventListener('change', () => refreshSliderWord(id));
+    refreshSliderWord(id);
+  });
+  // Also refresh after preset apply (which sets values programmatically).
+  const _applyPreset = applyGarmentPreset;
+  // eslint-disable-next-line no-func-assign
+  applyGarmentPreset = function(name){
+    _applyPreset(name);
+    refreshSliderWord('s_remove');
+    refreshSliderWord('s_spread');
+  };
+
+  // -------- "Try with sample" --------
+  // Generates a small artwork on-the-fly (no network, no extra asset):
+  // a gradient text logo on a solid black background — exactly the
+  // shape Semitonos DTF was designed to clean (solid bg removal +
+  // halftone). Wrapped into a File so it flows through handleNewFile.
+  function buildSampleFile(){
+    const W = 800, H = 600;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    // Solid black "garment" background
+    x.fillStyle = '#000'; x.fillRect(0,0,W,H);
+    // Gradient text
+    const g = x.createLinearGradient(0, 200, W, 400);
+    g.addColorStop(0, '#22e0d3');
+    g.addColorStop(.5, '#ff3ea5');
+    g.addColorStop(1, '#ffbd55');
+    x.fillStyle = g;
+    x.font = 'bold 180px -apple-system, "Segoe UI", Arial, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText('DTF', W/2, H/2 - 30);
+    x.font = 'bold 56px -apple-system, "Segoe UI", Arial, sans-serif';
+    x.fillStyle = '#ffffff';
+    x.fillText('SAMPLE', W/2, H/2 + 110);
+    // Subtle "speckle" so the user can see what the AI bg removal
+    // actually does vs a clean solid-color removal.
+    x.globalAlpha = .12; x.fillStyle = '#444';
+    for (let i=0; i<240; i++){
+      x.fillRect(Math.random()*W|0, Math.random()*H|0, 2, 2);
+    }
+    x.globalAlpha = 1;
+    return new Promise((res) => {
+      c.toBlob((blob) => {
+        const f = new File([blob], 'dtf-sample.png', { type:'image/png' });
+        res(f);
+      }, 'image/png');
+    });
+  }
+  const btnSample = $('btn-sample');
+  if (btnSample){
+    btnSample.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try { handleNewFile(await buildSampleFile()); }
+      catch(err){ console.error(err); }
+    });
+  }
+
+  // -------- Before / After wipe --------
+  const viewerEl = $('viewer');
+  const wipeBtn  = $('vt_wipe');
+  function setWipe(on){
+    viewerEl.classList.toggle('wipe', !!on);
+    if (wipeBtn){
+      wipeBtn.classList.toggle('active', !!on);
+      wipeBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    if (on) viewerEl.style.setProperty('--wipe', '0.5');
+  }
+  if (wipeBtn){
+    wipeBtn.addEventListener('click', () => {
+      // Only meaningful in the Result tab.
+      if (S.viewMode && S.viewMode !== 'result'){
+        // Snap back to Result view first.
+        const r = document.querySelector('#viewTabs .vtab[data-view="result"]');
+        if (r) r.click();
+      }
+      setWipe(!viewerEl.classList.contains('wipe'));
+    });
+  }
+  // Drag to move the wipe split. Pointer events bubble up from the
+  // stage; we listen on the viewer so the cursor stays "ew-resize"
+  // anywhere over the canvas.
+  let wipeDragging = false;
+  function updateWipeFromEvent(ev){
+    const rect = viewerEl.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) / rect.width;
+    viewerEl.style.setProperty('--wipe', Math.max(0, Math.min(1, x)).toFixed(4));
+  }
+  viewerEl.addEventListener('pointerdown', (ev) => {
+    if (!viewerEl.classList.contains('wipe')) return;
+    // Don't fight the eyedropper or toolbar.
+    if (viewerEl.classList.contains('picking')) return;
+    if (ev.target.closest('.viewer-toolbar')) return;
+    wipeDragging = true;
+    viewerEl.setPointerCapture(ev.pointerId);
+    updateWipeFromEvent(ev);
+    ev.preventDefault(); ev.stopPropagation();
+  }, true);
+  viewerEl.addEventListener('pointermove', (ev) => {
+    if (!wipeDragging) return;
+    updateWipeFromEvent(ev);
+  });
+  // Only end on pointerup/cancel — NOT pointerleave (pointer capture
+   // keeps events flowing, and ending on leave caused drag to abort
+   // when the cursor briefly exited the viewer bounds).
+  ['pointerup','pointercancel'].forEach((evt) => {
+    viewerEl.addEventListener(evt, (ev) => {
+      if (wipeDragging){ wipeDragging = false; try { viewerEl.releasePointerCapture(ev.pointerId); } catch(_){} }
+    });
+  });
+  // Keyboard shortcut: "W" toggles wipe.
+  document.addEventListener('keydown', (ev) => {
+    if (ev.target && /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName)) return;
+    if (ev.key === 'w' || ev.key === 'W'){
+      if (wipeBtn) wipeBtn.click();
+    }
+  });
+  // Disable wipe automatically when switching away from Result.
+  document.querySelectorAll('#viewTabs .vtab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.view !== 'result') setWipe(false);
+    });
+  });
+
+  // ==================================================================
+  //   TAP-TO-SHOW TOOLTIPS (touch devices have no :hover)
+  // ==================================================================
+  //   On touch devices we toggle a .show-tip class on the help icon
+  //   so its CSS pseudo-elements render. Tapping anywhere else closes
+  //   all open tips. Mouse users get the normal :hover behavior.
+  const isTouch = matchMedia('(hover: none)').matches || ('ontouchstart' in window);
+  if (isTouch){
+    document.addEventListener('click', (e) => {
+      const help = e.target.closest && e.target.closest('.help');
+      document.querySelectorAll('.help.show-tip').forEach((h) => {
+        if (h !== help) h.classList.remove('show-tip');
+      });
+      if (help){
+        e.preventDefault();
+        e.stopPropagation();
+        help.classList.toggle('show-tip');
+      }
+    }, true);
+  }
+
+  // Boot the language system once everything else is wired up.
+  applyLang(detectDefaultLang());
 
 })();
 </script>
