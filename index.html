@@ -906,30 +906,132 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 .wrap.has-image #card-screen > #download{ display:none !important }
 
 /* ==================================================================
-   LANGUAGE TOGGLE (top-right, fixed)
-   ================================================================== */
-.lang-toggle{
+   PREFS BAR — language + units (top-right, fixed)
+   ==================================================================
+   Two stacked rows, each with a tiny caption and a pill toggle. The
+   captions ("Language" / "Units") are obvious affordances so the user
+   immediately sees these are interactive choices — not just decorative
+   badges. The pills keep the compact pill look but with bigger hit
+   targets and a hover lift so they feel clickable. */
+.prefs-bar{
   position:fixed; top:14px; right:18px; z-index:30;
+  display:flex; flex-direction:column; gap:6px;
+  align-items:flex-end;
+}
+.pref-row{
+  display:inline-flex; align-items:center; gap:8px;
+}
+.pref-caption{
+  font-size:10px; font-weight:700; letter-spacing:.9px;
+  text-transform:uppercase; color:var(--muted);
+  user-select:none;
+}
+.lang-toggle{
   display:inline-flex; align-items:center; gap:0;
-  background:rgba(15,15,22,.85); border:1px solid var(--border);
+  background:rgba(15,15,22,.92); border:1px solid var(--border);
   border-radius:999px; padding:3px; backdrop-filter:blur(10px);
   font-size:11px; font-weight:700; letter-spacing:.6px;
-  box-shadow:0 4px 14px rgba(0,0,0,.35);
+  box-shadow:0 4px 14px rgba(0,0,0,.4);
+  transition:transform .15s, box-shadow .15s, border-color .15s;
+}
+.lang-toggle:hover{
+  transform:translateY(-1px);
+  border-color:#3a3a4d;
+  box-shadow:0 6px 18px rgba(0,0,0,.5);
 }
 .lang-toggle button{
   appearance:none; background:transparent; color:var(--muted);
-  border:0; padding:5px 10px; border-radius:999px;
+  border:0; padding:6px 12px; border-radius:999px;
   cursor:pointer; transition:all .15s; font:inherit;
-  letter-spacing:inherit;
+  letter-spacing:inherit; min-width:32px;
 }
 .lang-toggle button.active{
   background:rgba(34,224,211,.18); color:var(--cyan);
   box-shadow:inset 0 0 0 1px rgba(34,224,211,.4);
 }
 .lang-toggle button:hover:not(.active){ color:var(--text) }
+
+/* Unit toggle uses the magenta accent so the two controls read as
+   distinct surfaces. Toggling converts the displayed Width/Height. */
+.unit-toggle button.active{
+  background:rgba(236,40,145,.18); color:var(--magenta);
+  box-shadow:inset 0 0 0 1px rgba(236,40,145,.4);
+}
+
 @media (max-width: 720px){
-  .lang-toggle{ top:10px; right:10px; font-size:10px }
-  .lang-toggle button{ padding:4px 8px }
+  .prefs-bar{ top:10px; right:10px; gap:5px }
+  .pref-caption{ font-size:9px }
+  .lang-toggle{ font-size:10px }
+  .lang-toggle button{ padding:5px 9px; min-width:28px }
+}
+
+/* "Hey, look here" pulse on the prefs bar before any image is loaded.
+   The class is on by default and is removed when the user uploads an
+   artwork (see has-image toggle in JS). Each pill pulses in its own
+   accent (cyan for language, magenta for units) and the captions
+   gently nudge to the side so the eye lands on them. */
+.prefs-bar.attention .lang-toggle{
+  animation: prefPulseLang 2.4s ease-in-out infinite;
+}
+.prefs-bar.attention .unit-toggle{
+  animation: prefPulseUnit 2.4s ease-in-out infinite;
+  animation-delay: .6s;
+}
+.prefs-bar.attention .pref-caption{
+  color:var(--text);
+  animation: prefCaptionNudge 2.4s ease-in-out infinite;
+}
+.prefs-bar.attention .pref-row:nth-child(2) .pref-caption{
+  animation-delay:.6s;
+}
+@keyframes prefPulseLang{
+  0%, 100% {
+    box-shadow:0 4px 14px rgba(0,0,0,.4),
+               0 0 0 0 rgba(34,224,211,0);
+    border-color:var(--border);
+  }
+  50% {
+    box-shadow:0 8px 22px rgba(0,0,0,.5),
+               0 0 0 4px rgba(34,224,211,.18),
+               0 0 22px 6px rgba(34,224,211,.45);
+    border-color:rgba(34,224,211,.55);
+  }
+}
+@keyframes prefPulseUnit{
+  0%, 100% {
+    box-shadow:0 4px 14px rgba(0,0,0,.4),
+               0 0 0 0 rgba(236,40,145,0);
+    border-color:var(--border);
+  }
+  50% {
+    box-shadow:0 8px 22px rgba(0,0,0,.5),
+               0 0 0 4px rgba(236,40,145,.18),
+               0 0 22px 6px rgba(236,40,145,.45);
+    border-color:rgba(236,40,145,.55);
+  }
+}
+@keyframes prefCaptionNudge{
+  0%, 100% { transform:translateX(0); opacity:.85 }
+  50%      { transform:translateX(-2px); opacity:1 }
+}
+/* Smoothly fade the glow out when the image loads instead of cutting
+   abruptly (the .attention class is removed → animation stops). */
+.prefs-bar .lang-toggle,
+.prefs-bar .unit-toggle{
+  transition: box-shadow .35s ease, border-color .35s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  .prefs-bar.attention .lang-toggle,
+  .prefs-bar.attention .unit-toggle,
+  .prefs-bar.attention .pref-caption{
+    animation: none;
+  }
+  .prefs-bar.attention .lang-toggle{
+    box-shadow:0 0 0 2px rgba(34,224,211,.35), 0 4px 14px rgba(0,0,0,.4);
+  }
+  .prefs-bar.attention .unit-toggle{
+    box-shadow:0 0 0 2px rgba(236,40,145,.35), 0 4px 14px rgba(0,0,0,.4);
+  }
 }
 .action-bar .btn.primary{
   position:relative; overflow:hidden;
@@ -1117,12 +1219,26 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 </head>
 <body data-ux="simple">
 
-<!-- Language toggle (top-right, fixed). The actual button labels stay
-     literal ("EN" / "ES") in both languages; the i18n system below
-     swaps every translatable string elsewhere. -->
-<div class="lang-toggle" id="langToggle" role="group" aria-label="Language">
-  <button type="button" data-lang="en" class="active">EN</button>
-  <button type="button" data-lang="es">ES</button>
+<!-- Preferences bar (top-right, fixed). Two clearly-labeled rows so the
+     user immediately sees these are interactive choices, not badges.
+     Each row has a caption (translated) and a pill with two options.
+     The button labels stay literal ("EN" / "ES" / "in" / "cm") — only
+     the captions follow the active language. -->
+<div class="prefs-bar attention" id="prefsBar">
+  <div class="pref-row">
+    <span class="pref-caption" id="cap_lang">Language</span>
+    <div class="lang-toggle" id="langToggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" class="active">EN</button>
+      <button type="button" data-lang="es">ES</button>
+    </div>
+  </div>
+  <div class="pref-row">
+    <span class="pref-caption" id="cap_unit">Units</span>
+    <div class="lang-toggle unit-toggle" id="unitToggle" role="group" aria-label="Units">
+      <button type="button" data-unit="in" class="active">in</button>
+      <button type="button" data-unit="cm">cm</button>
+    </div>
+  </div>
 </div>
 
 <div class="wrap">
@@ -1269,11 +1385,11 @@ body[data-ux="advanced"] .simple-only{display:none !important}
         <h3>Target size</h3>
         <div class="row">
           <div>
-            <label>Width (in) <i class="help" data-tip="Physical size at which the artwork will be printed. Converted to pixels using the working DPI.">?</i></label>
+            <label><span class="lbl-text">Width</span> <span class="unit-suffix" id="u_new_w">(in)</span> <i class="help" data-tip="Physical size at which the artwork will be printed. Converted to pixels using the working DPI.">?</i></label>
             <input type="number" id="new_w_cm" step="0.1" min="0.2" value="12.6">
           </div>
           <div>
-            <label>Height (in) <i class="help" data-tip="If aspect ratio is locked, this adjusts automatically when width changes.">?</i></label>
+            <label><span class="lbl-text">Height</span> <span class="unit-suffix" id="u_new_h">(in)</span> <i class="help" data-tip="If aspect ratio is locked, this adjusts automatically when width changes.">?</i></label>
             <input type="number" id="new_h_cm" step="0.1" min="0.2" value="12.6">
           </div>
         </div>
@@ -2105,6 +2221,9 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     if (viewer) viewer.classList.remove('has-image','grabbing','picking','view-original','view-mask','view-zones');
     // Ocultar de nuevo la columna del preview hasta que vuelva a haber imagen.
     document.querySelector('.wrap').classList.remove('has-image');
+    // Re-arm the prefs-bar pulse: with no image loaded, the language and
+    // units pickers become the most attention-worthy controls again.
+    const _pb = $('prefsBar'); if (_pb) _pb.classList.add('attention');
     ['before','mask','zones','result','out'].forEach((id) => {
       const c = $(id); if (c){ c.width = c.height = 0; }
     });
@@ -2155,10 +2274,14 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   function populateFileCard(c){
     $('fcName').textContent = S.fileFullName || 'artwork';
     $('fcDims').textContent = `${c.width} × ${c.height} px`;
-    // Tamaño en in @ 300 DPI (referencia universal para DTF).
-    const wcm300 = c.width  / 300;
-    const hcm300 = c.height / 300;
-    $('fcCm').textContent = `${wcm300.toFixed(2)} × ${hcm300.toFixed(2)} in @ 300dpi`;
+    // Tamaño físico @ 300 DPI en la unidad activa (in / cm).
+    const wIn = c.width  / 300;
+    const hIn = c.height / 300;
+    if (UNIT === 'cm'){
+      $('fcCm').textContent = `${(wIn*IN_TO_CM).toFixed(2)} × ${(hIn*IN_TO_CM).toFixed(2)} cm @ 300dpi`;
+    } else {
+      $('fcCm').textContent = `${wIn.toFixed(2)} × ${hIn.toFixed(2)} in @ 300dpi`;
+    }
     $('fcDpi').textContent = S.sourceDpiKnown
       ? `${Math.round(S.sourceDpi)} dpi`
       : `${Math.round(S.sourceDpi)} dpi (assumed)`;
@@ -2202,15 +2325,17 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 
       // Tamaño físico de la imagen original (in) en su DPI embebido — se
       // usa solo para sugerir un ancho destino razonable. Los valores
-      // visibles (px / DPI / in) ahora viven en la .file-card.
-      const wcm = c.width / S.sourceDpi;
+      // visibles (px / DPI / in|cm) ahora viven en la .file-card.
+      const wIn = c.width / S.sourceDpi;
 
-      let suggW;
-      if (wcm >= 20) suggW = 12.6;
-      else if (wcm > 0) suggW = +wcm.toFixed(1);
-      else suggW = 12.6;
-      $('new_w_cm').value = suggW;
-      $('new_h_cm').value = (suggW * S.ratio).toFixed(2);
+      let suggIn;
+      if (wIn >= 20) suggIn = 12.6;
+      else if (wIn > 0) suggIn = +wIn.toFixed(1);
+      else suggIn = 12.6;
+      // Show the suggestion in the active unit (es default → cm, en → in).
+      const suggDisp = fromInches(suggIn);
+      $('new_w_cm').value = suggDisp.toFixed(UNIT === 'cm' ? 1 : 1);
+      $('new_h_cm').value = (suggDisp * S.ratio).toFixed(2);
 
       // Pasamos del estado "dropzone" al estado "file-card".
       $('dropzone').classList.remove('loading','error');
@@ -2219,6 +2344,9 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       $('fileCard').style.display = '';
       // Revelar la columna del preview ahora que hay imagen.
       document.querySelector('.wrap').classList.add('has-image');
+      // Stop drawing attention to the lang/unit pickers — the focus
+      // should now be on the artwork and processing controls.
+      const _pb = $('prefsBar'); if (_pb) _pb.classList.remove('attention');
 
       $('prep-block').style.display = '';
       $('card-tonal').classList.remove('disabled-card');
@@ -2441,11 +2569,13 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   $('fast_mode').addEventListener('change', () => { updateTargetInfo(); scheduleProcess(0); });
 
   function updateTargetInfo(){
-    const w = parseFloat($('new_w_cm').value) || 0;
-    const h = parseFloat($('new_h_cm').value) || 0;
-    const dpi = parseFloat($('target_dpi').value) || 300;
-    const wpx = Math.round(w * dpi);
-    const hpx = Math.round(h * dpi);
+    // Inputs hold the value in the active UNIT; convert to inches before
+    // multiplying by DPI (which is dots per *inch*).
+    const wIn  = getInputInches('new_w_cm');
+    const hIn  = getInputInches('new_h_cm');
+    const dpi  = parseFloat($('target_dpi').value) || 300;
+    const wpx  = Math.round(wIn * dpi);
+    const hpx  = Math.round(hIn * dpi);
     $('i_target_px').textContent = `${wpx} × ${hpx} px`;
     const scale = S.origW ? (wpx / S.origW) : 1;
     $('i_scale').textContent = scale ? `${scale.toFixed(3)}×` : '—';
@@ -2497,9 +2627,12 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       // Halftone only renders on the explicit "Process now" click
       // (which sets S.halftoneActive=true) or on Download (forFinal).
       halftoneOn: forFinal || S.halftoneActive,
-      // Salida
-      newWcm:     parseFloat($('new_w_cm').value) || 0,
-      newHcm:     parseFloat($('new_h_cm').value) || 0,
+      // Salida — el pipeline trabaja en pulgadas (px = in × dpi). Los
+      // valores que el usuario ve están en la unidad activa, así que se
+      // convierten aquí. Los nombres `newWcm`/`newHcm` se conservan por
+      // compatibilidad con el resto del pipeline.
+      newWcm:     getInputInches('new_w_cm'),
+      newHcm:     getInputInches('new_h_cm'),
       targetDpi:  Math.max(1, parseFloat($('target_dpi').value) || 300),
       fastMode,
     };
@@ -3659,6 +3792,29 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   // ==================================================================
   let LANG = 'en';
   function T(en, es){ return LANG === 'es' ? es : en; }
+
+  // ==================================================================
+  //   UNITS — Inches / Centímetros
+  // ==================================================================
+  //   The Width/Height inputs (#new_w_cm / #new_h_cm) keep their legacy
+  //   element IDs, but the *displayed* value follows UNIT. Internally
+  //   the pipeline still works in inches (px = inches × dpi), so every
+  //   read of those inputs goes through `getDisplayedInches()` for the
+  //   conversion. Switching units converts the on-screen value so the
+  //   user's intent ("12 cm wide") survives the toggle.
+  // ==================================================================
+  let UNIT = 'in';
+  const IN_TO_CM = 2.54;
+  function toInches(v){ return UNIT === 'cm' ? v / IN_TO_CM : v; }
+  function fromInches(v){ return UNIT === 'cm' ? v * IN_TO_CM : v; }
+  // Treats the value of the given input as a measurement in the
+  // currently selected unit and returns the equivalent in inches.
+  function getInputInches(id){
+    const v = parseFloat(($(id) && $(id).value) || '');
+    return isFinite(v) ? toInches(v) : 0;
+  }
+  function unitDecimals(){ return UNIT === 'cm' ? 1 : 1; }
+  function unitDecimalsTight(){ return UNIT === 'cm' ? 2 : 2; }
   // textOnly:true means replace only the trailing text node (lets us
   // translate "<svg/>Change design" without losing the SVG).
   const TRANSLATIONS = [
@@ -3687,6 +3843,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
                                               es: 'Reprocesar con los parámetros actuales' },
     { sel: '#btn-remove', attr: 'title', en: 'Remove image', es: 'Eliminar imagen' },
     { sel: '#prep-block h3:nth-of-type(1)', en: 'Target size', es: 'Tamaño destino' },
+    { labelFor: 'new_w_cm', childSel: '.lbl-text', en: 'Width',  es: 'Ancho' },
+    { labelFor: 'new_h_cm', childSel: '.lbl-text', en: 'Height', es: 'Alto'  },
     { labelFor: 'lock_ratio', en: ' Lock aspect ratio', es: ' Bloquear proporción', textOnly: true },
     { sel: '#prep-block h3:nth-of-type(2)', en: 'Working DPI', es: 'DPI de trabajo' },
     { labelFor: 'fast_mode', childSel: 'span', en: 'Fast quality (preview)', es: 'Calidad rápida (vista previa)' },
@@ -3778,6 +3936,10 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     { sel: '#vt_zoom_in',  attr: 'title', en: 'Zoom in (+)', es: 'Acercar (+)' },
     { sel: '#vt_fit',  attr: 'title', en: 'Fit to view (0)', es: 'Ajustar (0)' },
     { sel: '#vt_100',  attr: 'title', en: 'Actual size 100% (1)', es: 'Tamaño real 100% (1)' },
+
+    // ---- Prefs bar (lang + units) ----
+    { sel: '#cap_lang', en: 'Language', es: 'Idioma'   },
+    { sel: '#cap_unit', en: 'Units',    es: 'Unidades' },
   ];
   // For "__sibling_label__" entries above, translate the <span> sibling
   // inside the same .kv row that precedes the <b id="…"> reference.
@@ -3789,20 +3951,30 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     // Resolve a translation entry to a NodeList. Supports:
     //   - sel: any CSS selector
     //   - labelFor: find the <label> that owns input#<id>. Works for
-    //     wrapped toggles (<label><input id=…>) AND sibling patterns
-    //     (<label>…</label><input id=…>) — the actual DOM uses both.
+    //     three layout patterns we use in the page:
+    //       a) wrapped toggles: <label><input id=…></label>
+    //       b) sibling pattern: <label>…</label><input id=…>
+    //       c) wrapped input:   <label>…</label><div class="slider-wrap"><input id=…></div>
     function resolve(t){
       if (t.labelFor){
         const input = document.getElementById(t.labelFor);
         if (!input) return [];
+        // a) Wrapping label
         let lbl = input.closest('label');
-        if (!lbl){
-          // Walk backwards through siblings to the nearest <label>.
-          let n = input.previousElementSibling;
+        if (lbl) return [lbl];
+        // b) Sibling label, same parent as the input
+        let n = input.previousElementSibling;
+        while (n && n.tagName !== 'LABEL') n = n.previousElementSibling;
+        if (n) return [n];
+        // c) Label that is a sibling of the input's WRAPPER (e.g. the
+        //    .slider-wrap pattern used by the simple sliders).
+        const parent = input.parentElement;
+        if (parent){
+          n = parent.previousElementSibling;
           while (n && n.tagName !== 'LABEL') n = n.previousElementSibling;
-          lbl = n;
+          if (n) return [n];
         }
-        return lbl ? [lbl] : [];
+        return [];
       }
       return Array.from(document.querySelectorAll(t.sel));
     }
@@ -3873,6 +4045,86 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       if ((navigator.language || '').toLowerCase().startsWith('es')) return 'es';
     } catch(_){}
     return 'en';
+  }
+
+  // ==================================================================
+  //   applyUnit — switch display unit, convert visible values
+  // ==================================================================
+  //   `opts.skipConvert` is used at boot time when the inputs already
+  //   hold values in the target unit (e.g. when restoring a saved
+  //   preference). For interactive switches the displayed Width/Height
+  //   are converted in place so the physical print size stays the same.
+  // ==================================================================
+  function applyUnit(unit, opts){
+    opts = opts || {};
+    const newUnit = (unit === 'cm') ? 'cm' : 'in';
+    const oldUnit = UNIT;
+    UNIT = newUnit;
+    try { localStorage.setItem('vk_unit', UNIT); } catch(_){}
+
+    if (!opts.skipConvert && oldUnit !== newUnit){
+      const wEl = $('new_w_cm');
+      const hEl = $('new_h_cm');
+      if (wEl){
+        const w = parseFloat(wEl.value);
+        if (isFinite(w)){
+          const wIn = oldUnit === 'cm' ? w / IN_TO_CM : w;
+          wEl.value = (newUnit === 'cm' ? wIn * IN_TO_CM : wIn).toFixed(2);
+        }
+      }
+      if (hEl){
+        const h = parseFloat(hEl.value);
+        if (isFinite(h)){
+          const hIn = oldUnit === 'cm' ? h / IN_TO_CM : h;
+          hEl.value = (newUnit === 'cm' ? hIn * IN_TO_CM : hIn).toFixed(2);
+        }
+      }
+    }
+
+    // Update the "(in)" / "(cm)" suffix next to the Width / Height labels.
+    const suffix = '(' + UNIT + ')';
+    const uw = $('u_new_w'); if (uw) uw.textContent = suffix;
+    const uh = $('u_new_h'); if (uh) uh.textContent = suffix;
+
+    // Refresh the "X × Y in @ 300 dpi" line on the file card.
+    if (S.sourceCanvas && typeof refreshFileCardSize === 'function'){
+      refreshFileCardSize();
+    }
+
+    // Update unit-toggle active state
+    document.querySelectorAll('#unitToggle button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.unit === UNIT);
+    });
+
+    if (typeof updateTargetInfo === 'function') updateTargetInfo();
+    if (!opts.skipProcess && typeof scheduleProcess === 'function') scheduleProcess();
+  }
+  // Unit toggle wiring
+  document.querySelectorAll('#unitToggle button').forEach((b) => {
+    b.addEventListener('click', () => applyUnit(b.dataset.unit));
+  });
+  // Boot: saved preference > derived from language (es → cm, en → in)
+  function detectDefaultUnit(lang){
+    try {
+      const saved = localStorage.getItem('vk_unit');
+      if (saved === 'in' || saved === 'cm') return saved;
+    } catch(_){}
+    return lang === 'es' ? 'cm' : 'in';
+  }
+  // Re-paints the file-card "physical size" line in the current unit.
+  // Defined here so applyUnit can call it; the canvas reference comes
+  // from S.sourceCanvas which is set by loadAndInspect.
+  function refreshFileCardSize(){
+    const c = S.sourceCanvas;
+    const el = $('fcCm');
+    if (!c || !el) return;
+    const wIn = c.width  / 300;
+    const hIn = c.height / 300;
+    if (UNIT === 'cm'){
+      el.textContent = `${(wIn*IN_TO_CM).toFixed(2)} × ${(hIn*IN_TO_CM).toFixed(2)} cm @ 300dpi`;
+    } else {
+      el.textContent = `${wIn.toFixed(2)} × ${hIn.toFixed(2)} in @ 300dpi`;
+    }
   }
 
   // ==================================================================
@@ -4147,8 +4399,18 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     }, true);
   }
 
-  // Boot the language system once everything else is wired up.
-  applyLang(detectDefaultLang());
+  // Boot the language + units system. Language: localStorage > timezone
+  // (Mexico → ES, US/etc → EN) > navigator. Units: localStorage > derived
+  // from the active language (es → cm, en → in). Both stay editable via
+  // the prefs bar in the top-right corner.
+  (function bootLangAndUnits(){
+    const lang = detectDefaultLang();
+    applyLang(lang);
+    // The Width/Height inputs hold the HTML default 12.6 (interpreted as
+    // inches). When the chosen unit is cm we DO want to convert that to
+    // ~32.00 cm so the displayed value reads correctly.
+    applyUnit(detectDefaultUnit(lang), { skipProcess: true });
+  })();
 
 })();
 </script>
