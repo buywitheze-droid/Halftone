@@ -761,11 +761,24 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   body{padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));
        padding-left:max(16px,env(safe-area-inset-left));
        padding-right:max(16px,env(safe-area-inset-right))}
-  .wrap{
+  /* Force a single-column stack on mobile, even when the embed flag is
+     active. Without these explicit overrides the more-specific
+     `html.embed .wrap.has-image` rule above keeps the 1fr+380px grid
+     and the controls column gets squeezed (≈40 % of viewport width on
+     a phone), producing the broken layout where every word wraps onto
+     its own line. */
+  .wrap,
+  html.embed .wrap,
+  html.embed .wrap.has-image{
     grid-template-columns:1fr;
     grid-template-areas:"viewer" "controls";
     height:auto;min-height:auto;gap:16px;
+    max-width:none;
   }
+  /* Reset any embed-mode order tweaks so the viewer is always on top
+     and the controls always below on mobile. */
+  html.embed .wrap.has-image > .col-left{order:initial}
+  html.embed .wrap.has-image > .card{order:initial}
   .col-left{grid-area:controls;overflow:visible;padding-right:0;margin-right:0}
   .wrap > .card{
     grid-area:viewer;
@@ -959,10 +972,29 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 }
 
 @media (max-width: 720px){
-  .prefs-bar{ top:10px; right:10px; gap:5px }
   .pref-caption{ font-size:9px }
   .lang-toggle{ font-size:10px }
   .lang-toggle button{ padding:5px 9px; min-width:28px }
+}
+
+/* On phones / narrow viewports, anchoring the prefs-bar in the corner
+   makes it overlap the file-card and the action buttons. Pull it
+   inline so it scrolls with the page above the viewer card and never
+   covers anything. The pulse / attention styling still applies, just
+   re-flowed into a horizontal row. */
+@media (max-width: 980px){
+  .prefs-bar{
+    position:static; top:auto; right:auto;
+    flex-direction:row;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:flex-end;
+    gap:6px 12px;
+    margin:0 0 4px;
+    padding:0;
+  }
+  .pref-row{ gap:6px }
+  .pref-caption{ font-size:9px }
 }
 
 /* "Hey, look here" pulse on the prefs bar before any image is loaded.
@@ -1046,6 +1078,63 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   0%{ box-shadow:0 0 0 0 rgba(34,224,211,.55) }
   70%{ box-shadow:0 0 0 10px rgba(34,224,211,0) }
   100%{ box-shadow:0 0 0 0 rgba(34,224,211,0) }
+}
+
+/* ==================================================================
+   PROCESSED INDICATOR — green flash + ✓ overlay on the Process button
+   ==================================================================
+   Runs once when a user-triggered Process pass finishes successfully.
+   The class is added in JS, auto-cleaned on animation end, and forced
+   off whenever the user touches a parameter (which re-flags the
+   button as dirty). The overlay sits on top of the button text via
+   ::before; we add position:relative + overflow:hidden so the green
+   plate is always clipped to the button shape (works for both the
+   in-card #btn-process and the sticky action-bar #btn-process-2). */
+.btn.primary.processed{
+  position:relative; overflow:hidden;
+  animation: ctaProcessedFlash .9s cubic-bezier(.2,1,.3,1);
+}
+.btn.primary.processed::before{
+  content: "\2713";   /* ✓ check mark */
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color:#052e10;
+  font-size:26px; font-weight:900;
+  border-radius:inherit;
+  animation: ctaProcessedOverlay 1.5s ease-out forwards;
+  pointer-events:none;
+  z-index:1;
+}
+/* Subtle rim glow that lingers a beat longer than the overlay so the
+   eye lands on the button even after the green plate fades. */
+.btn.primary.processed::after{
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  box-shadow:0 0 0 0 rgba(34,197,94,0);
+  animation: ctaProcessedRim 1.5s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes ctaProcessedFlash{
+  0%, 100% { transform: scale(1) }
+  18%      { transform: scale(1.035) }
+}
+@keyframes ctaProcessedOverlay{
+  0%   { opacity:0; transform:scale(.94) }
+  18%  { opacity:1; transform:scale(1.05) }
+  35%  { opacity:1; transform:scale(1)    }
+  82%  { opacity:1 }
+  100% { opacity:0 }
+}
+@keyframes ctaProcessedRim{
+  0%   { box-shadow:0 0 0 0 rgba(34,197,94,.55) }
+  60%  { box-shadow:0 0 0 8px rgba(34,197,94,0) }
+  100% { box-shadow:0 0 0 0 rgba(34,197,94,0) }
+}
+@media (prefers-reduced-motion: reduce){
+  .btn.primary.processed{ animation:none }
+  .btn.primary.processed::before,
+  .btn.primary.processed::after{ animation:none }
+  .btn.primary.processed::before{ opacity:1 }
 }
 
 /* ==================================================================
@@ -3162,6 +3251,12 @@ body[data-ux="advanced"] .simple-only{display:none !important}
         await runOnce();
       }
     }
+    // Visual confirmation — brief green ✓ flash on the CTA so the user
+    // sees that "Process design" actually finished. Skip on failure
+    // (no S.lastResult) so we don't claim success after an error.
+    if (S.lastResult && typeof markCtaProcessed === 'function'){
+      markCtaProcessed();
+    }
   });
 
   // ==================================================================
@@ -4154,9 +4249,36 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 
   // "Dirty" indicator: any param change after a successful process
   // pulses the CTA so the user knows there's something new to re-run.
+  // When dirty turns ON we also clear any lingering "processed" badge
+  // so a stale result doesn't keep advertising itself as ready.
   function markCtaDirty(on){
     if (btnP2) btnP2.classList.toggle('dirty', !!on);
     if (btnP1) btnP1.classList.toggle('dirty', !!on);
+    if (on){
+      if (btnP1) btnP1.classList.remove('processed');
+      if (btnP2) btnP2.classList.remove('processed');
+      clearTimeout(_processedTimer);
+    }
+  }
+
+  // "Processed" indicator: a one-shot green ✓ flash on the CTA after a
+  // user-triggered Process pass completes. The class is removed once
+  // the CSS animation has played (~1.5 s) so we can replay it on the
+  // next click. Calling this on every live preview pass would be
+  // distracting — only `Process design` clicks should trigger it.
+  let _processedTimer = null;
+  function markCtaProcessed(){
+    const targets = [btnP1, btnP2].filter(Boolean);
+    if (!targets.length) return;
+    // Restart the animation: remove → reflow → add. Without the reflow
+    // step the browser may dedupe the class change and skip the replay.
+    targets.forEach((b) => b.classList.remove('processed'));
+    void targets[0].offsetWidth;
+    targets.forEach((b) => b.classList.add('processed'));
+    clearTimeout(_processedTimer);
+    _processedTimer = setTimeout(() => {
+      targets.forEach((b) => b.classList.remove('processed'));
+    }, 1550);
   }
   // Hook into every slider/input that triggers scheduleProcess.
   ['s_remove','s_spread','color_tol','color_feather','color_chroma','gamma',
