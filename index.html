@@ -1735,6 +1735,15 @@ body[data-ux="advanced"] .simple-only{display:none !important}
           <span>Anti-alias on dot edges</span>
           <i class="help" data-tip="Smooths each dot edge with ~1 px of transition. Disabled gives pure 1-bit output like Photoshop's Bitmap › Halftone Screen.">?</i>
         </label>
+
+        <label class="toggle">
+          <input type="checkbox" id="alpha_threshold_on" checked>
+          <span>Binarize alpha (remove semi-transparency)</span>
+          <i class="help" data-tip="Final pass that snaps every pixel to fully opaque or fully transparent. Like Photoshop's Threshold tool applied to the alpha channel. Recommended for DTF where partial transparency causes flaky edges.">?</i>
+        </label>
+
+        <label class="advanced-only">Alpha threshold <i class="help" data-tip="Cutoff applied to the alpha channel. Pixels with alpha ≥ this value become fully opaque; below become fully transparent. 128 = midpoint (default). Raise for more aggressive edge cleanup, lower to preserve thin/soft elements.">?</i><span class="val" id="v_alpha_threshold">128</span></label>
+        <input type="range" id="alpha_threshold" class="advanced-only" min="1" max="254" step="1" value="128">
       </div>
 
       <button class="btn primary" id="btn-process" disabled>Process design</button>
@@ -3126,6 +3135,11 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       angleDeg:   parseFloat($('angle').value),
       minDotMm:   Math.max(0, parseFloat($('min_dot_mm').value)),
       softEdges:  $('soft_edges').checked,
+      // Final 1-bit alpha threshold (Photoshop-style). Without this,
+      // anti-aliasing + base alpha leak partial transparency that DTF
+      // RIPs interpret unpredictably.
+      alphaThresholdOn: $('alpha_threshold_on').checked,
+      alphaThreshold:   Math.max(1, Math.min(254, parseInt($('alpha_threshold').value, 10) || 128)),
       // Halftone only renders on the explicit "Process now" click
       // (which sets S.halftoneActive=true) or on Download (forFinal).
       halftoneOn: forFinal || S.halftoneActive,
@@ -3470,6 +3484,15 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       finalAlpha[i] = a;
       data[i*4 + 3] = a;
     }
+    // Final 1-bit alpha threshold — see processor.worker.js for rationale.
+    if (p.alphaThresholdOn){
+      const T = Math.max(1, Math.min(255, p.alphaThreshold | 0));
+      for (let i = 0; i < N; i++){
+        const a = finalAlpha[i] >= T ? 255 : 0;
+        finalAlpha[i] = a;
+        data[i*4 + 3] = a;
+      }
+    }
     return { colorData: new Uint8ClampedArray(data), finalAlpha, tone };
   }
 
@@ -3530,6 +3553,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       angleDeg: p.angleDeg,
       minDotMm: p.minDotMm,
       softEdges: p.softEdges,
+      alphaThresholdOn: p.alphaThresholdOn,
+      alphaThreshold: p.alphaThreshold,
       targetDpi: p.targetDpi,
     };
 
@@ -3597,6 +3622,13 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   const PARAM_IDS = ['brightness','contrast','sharpness','black_cut','white_cut','gamma','lpi','angle','min_dot_mm'];
   PARAM_IDS.forEach(id => $(id).addEventListener('input', () => scheduleProcess()));
   $('soft_edges').addEventListener('change', () => scheduleProcess());
+  $('alpha_threshold_on').addEventListener('change', () => scheduleProcess());
+  $('alpha_threshold').addEventListener('input', () => {
+    const v = $('alpha_threshold').value;
+    const lbl = $('v_alpha_threshold');
+    if (lbl) lbl.textContent = v;
+    scheduleProcess();
+  });
 
   let debounceTimer = null;
   // Serialized run queue:
@@ -4500,6 +4532,10 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     { sel: '#min_dot_warn', en: '⚠ Below the DTF production floor (~0.15 mm). Dots this small may not transfer on standard printers.',
                             es: '⚠ Por debajo del mínimo de producción DTF (~0.15 mm). Puntos tan pequeños pueden no transferirse en impresoras estándar.' },
     { labelFor: 'soft_edges', childSel: 'span', en: 'Anti-alias on dot edges', es: 'Anti-alias en los bordes' },
+    { labelFor: 'alpha_threshold_on', childSel: 'span',
+        en: 'Binarize alpha (remove semi-transparency)',
+        es: 'Binarizar alpha (quitar semi-transparencia)' },
+    { labelFor: 'alpha_threshold', en: 'Alpha threshold ', es: 'Umbral de alpha ', textOnly: true },
     { sel: '#btn-process',   en: 'Process design',   es: 'Procesar diseño' },
     { sel: '#btn-process-2', en: 'Process design',   es: 'Procesar diseño' },
     { sel: '#download > button',   en: 'Download transparent PNG (full quality)',

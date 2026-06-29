@@ -241,6 +241,20 @@ self.onmessage = (e) => {
       data[i * 4 + 3] = a;
     }
 
+    // Final alpha threshold (Photoshop-style "Threshold" on the alpha
+    // channel). Maps any partial transparency to either fully opaque
+    // (255) or fully transparent (0). Essential for DTF where the
+    // printer/RIP wants a 1-bit mask — partial alpha causes flaky
+    // edges, halos, and white-ink under-base inconsistencies.
+    if (params.alphaThresholdOn) {
+      const T = Math.max(1, Math.min(255, params.alphaThreshold | 0));
+      for (let i = 0; i < N; i++) {
+        const a = finalAlpha[i] >= T ? 255 : 0;
+        finalAlpha[i] = a;
+        data[i * 4 + 3] = a;
+      }
+    }
+
     const transfers = [data.buffer, finalAlpha.buffer, tone.buffer];
     self.postMessage({
       id,
