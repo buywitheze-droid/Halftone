@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Upscaler · banco de pruebas</title>
+  <style>
+    :root{
+      --bg:#0e0e12; --card:#181822; --line:#2a2a38; --text:#ececf2;
+      --muted:#8b8b9c; --cyan:#22e0d3; --pink:#ec2891; --ok:#22c55e;
+      --warn:#ffbd55; --err:#ff5555;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;height:100%}
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:radial-gradient(1200px 700px at 85% -5%, #1a1338 0%, var(--bg) 60%) fixed;
+      color:var(--text);
+      padding:24px;
+    }
+    h1{margin:0 0 4px;font-size:22px;letter-spacing:.3px}
+    h1 .tag{
+      display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;
+      background:rgba(34,224,211,.12);color:var(--cyan);
+      font-size:11px;letter-spacing:1.2px;text-transform:uppercase;vertical-align:middle;
+    }
+    .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+
+    .wrap{
+      display:grid;
+      grid-template-columns:360px 1fr;
+      gap:18px;
+      max-width:1500px;
+      margin:0 auto;
+    }
+    @media (max-width:980px){ .wrap{grid-template-columns:1fr} }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:18px;
+    }
+    .card h2{
+      margin:0 0 12px;font-size:13px;letter-spacing:1.6px;text-transform:uppercase;
+      color:var(--cyan);
+    }
+    .card h2::before{
+      content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+      background:var(--cyan);box-shadow:0 0 6px var(--cyan);margin-right:8px;
+      vertical-align:middle;
+    }
+
+    label{display:block;margin-top:12px;font-size:12px;color:var(--muted)}
+    label .val{float:right;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+
+    input[type="text"],input[type="number"],select{
+      width:100%;padding:9px 10px;background:#101019;color:var(--text);
+      border:1px solid var(--line);border-radius:8px;font-size:13px;outline:none;
+      margin-top:4px;
+    }
+    input:focus,select:focus{border-color:var(--cyan)}
+
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+    .toggle{
+      display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
+      margin-top:10px;cursor:pointer;
+    }
+    .toggle input{accent-color:var(--cyan)}
+
+    .btn{
+      display:inline-block;width:100%;margin-top:12px;padding:11px 14px;
+      border-radius:10px;border:1px solid transparent;cursor:pointer;
+      font-weight:600;font-size:13px;letter-spacing:.2px;
+      background:#1f1f2c;color:var(--text);transition:transform .05s,filter .15s;
+    }
+    .btn:hover{filter:brightness(1.1)}
+    .btn:active{transform:translateY(1px)}
+    .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+    .btn.primary{
+      background:linear-gradient(135deg,var(--cyan),#0ca99b);
+      color:#001513;
+    }
+    .btn.outline{
+      background:transparent;border:1px solid var(--line);color:var(--text);
+      font-weight:500;
+    }
+    .btn.outline:hover{background:rgba(255,255,255,.04)}
+    .btn-row{display:grid;grid-template-columns:1fr auto;gap:10px}
+
+    .dropzone{
+      border:2px dashed var(--line);border-radius:12px;
+      padding:24px;text-align:center;color:var(--muted);font-size:13px;
+      cursor:pointer;transition:border-color .2s,background .2s;
+      background:#101019;
+    }
+    .dropzone:hover,.dropzone.over{
+      border-color:var(--cyan);color:var(--text);background:rgba(34,224,211,.05);
+    }
+    .dropzone b{display:block;color:var(--text);margin-bottom:4px;font-size:14px}
+
+    .progress{
+      height:8px;background:#101019;border:1px solid var(--line);
+      border-radius:4px;overflow:hidden;margin-top:10px;
+    }
+    .progress > div{
+      height:100%;width:0;
+      background:linear-gradient(90deg,var(--cyan),#0ca99b);
+      transition:width .15s;
+    }
+
+    .info{
+      background:#101019;border:1px solid var(--line);border-radius:10px;
+      padding:10px 12px;margin-top:12px;
+    }
+    .kv{
+      display:flex;justify-content:space-between;
+      font-size:12px;color:var(--muted);padding:4px 0;
+    }
+    .kv b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+
+    .status{
+      margin-top:12px;padding:10px 12px;border-radius:8px;font-size:12px;
+      background:#101019;border:1px solid var(--line);
+    }
+    .status.ok{border-color:rgba(34,197,94,.4);color:#bdf3cf}
+    .status.err{border-color:rgba(255,85,85,.45);color:#ffc0c0}
+    .status.busy{border-color:rgba(255,189,85,.4);color:#ffe0a8}
+
+    .preview-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+    @media (max-width:700px){ .preview-grid{grid-template-columns:1fr} }
+    .preview-pane{
+      background:#0a0a10;border:1px solid var(--line);border-radius:10px;
+      padding:10px;display:flex;flex-direction:column;min-height:280px;
+    }
+    .preview-pane h3{
+      margin:0 0 8px;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;
+      color:var(--muted);display:flex;justify-content:space-between;align-items:center;
+    }
+    .preview-pane h3 span.dim{color:var(--text);font-weight:600;letter-spacing:0;text-transform:none;font-size:11px}
+    .preview-canvas-wrap{
+      flex:1;display:flex;align-items:center;justify-content:center;
+      background:
+        linear-gradient(45deg,#1b1b26 25%,transparent 25%),
+        linear-gradient(-45deg,#1b1b26 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#1b1b26 75%),
+        linear-gradient(-45deg,transparent 75%,#1b1b26 75%);
+      background-size:16px 16px;
+      background-position:0 0,0 8px,8px -8px,-8px 0;
+      border-radius:6px;
+      overflow:auto;
+      min-height:240px;
+      max-height:65vh;
+    }
+    .preview-canvas-wrap canvas{
+      max-width:100%;
+      max-height:100%;
+      image-rendering:pixelated;
+      box-shadow:0 4px 20px rgba(0,0,0,.5);
+      display:block;
+    }
+    .empty{color:var(--muted);font-size:12px;padding:24px}
+
+    details > summary{
+      cursor:pointer;font-size:12px;color:var(--muted);
+      padding:4px 0;user-select:none;
+    }
+    details > summary:hover{color:var(--text)}
+    details[open] > summary{color:var(--text);margin-bottom:6px}
+
+    .hint{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4}
+    a{color:var(--cyan)}
+  </style>
+</head>
+<body>
+
+<h1>AI Upscaler <span class="tag">banco de pruebas</span></h1>
+<div class="sub">
+  Real-ESRGAN vía <a href="https://onnxruntime.ai/docs/tutorials/web/" target="_blank" rel="noopener">ONNX Runtime Web</a> (WebGPU → WASM). Standalone, sin pipeline de DTF — solo upscale puro.
+</div>
+
+<div class="wrap">
+
+  <!-- =================== PANEL DE CONTROL =================== -->
+  <div class="card">
+    <h2>Entrada</h2>
+
+    <div id="dropzone" class="dropzone" tabindex="0">
+      <b>Suelta una imagen aquí</b>
+      o haz click para elegirla (PNG, JPG, WEBP)
+    </div>
+    <input type="file" id="file" accept="image/*" style="display:none">
+
+    <div class="info" id="file-info" style="display:none">
+      <div class="kv"><span>Archivo</span><b id="i_name">—</b></div>
+      <div class="kv"><span>Dimensiones</span><b id="i_dims">—</b></div>
+      <div class="kv"><span>Peso</span><b id="i_size">—</b></div>
+    </div>
+
+    <h2 style="margin-top:18px">Modelo</h2>
+    <label>Modelo</label>
+    <div class="row">
+      <select id="model">
+        <option value="anime">Anime / line art (logos)</option>
+        <option value="general">Foto / general</option>
+        <option value="custom">URL personalizada…</option>
+      </select>
+      <select id="scale" title="Escala de salida">
+        <option value="4">×4 (recomendado)</option>
+        <option value="2">×2 (con downsample)</option>
+      </select>
+    </div>
+
+    <details id="advanced" style="margin-top:10px">
+      <summary>Opciones avanzadas</summary>
+
+      <label>URL del modelo (.onnx)</label>
+      <input type="text" id="model_url" placeholder="./models/realesr-general-x4v3.onnx">
+
+      <label>URL base de ONNX Runtime (opcional)</label>
+      <input type="text" id="ort_base" placeholder="dejar vacío = CDN jsdelivr / unpkg">
+      <p class="hint" style="margin-top:2px">
+        Si tu red bloquea los CDNs, pon aquí la URL de un mirror o de tu carpeta local <code>./ort/</code> (debe terminar con <code>/</code>).
+      </p>
+
+      <div class="row" style="margin-top:6px">
+        <div>
+          <label>Tile (px)</label>
+          <input type="number" id="tile" value="128" min="32" max="512" step="32">
+        </div>
+        <div>
+          <label>Padding</label>
+          <input type="number" id="pad" value="8" min="0" max="32" step="2">
+        </div>
+      </div>
+
+      <label class="toggle">
+        <input type="checkbox" id="prefer_gpu" checked>
+        <span>Preferir WebGPU si está disponible</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="alpha_binary">
+        <span>Bordes de alfa duros (logos)</span>
+      </label>
+    </details>
+
+    <div class="btn-row">
+      <button class="btn primary" id="btn-run" type="button" disabled>Upscale</button>
+      <button class="btn outline" id="btn-cancel" type="button" disabled>Cancel</button>
+    </div>
+
+    <div class="progress" id="progress-wrap" style="display:none">
+      <div id="progress"></div>
+    </div>
+    <div class="info" id="run-info" style="display:none">
+      <div class="kv"><span>Etapa</span><b id="i_stage">—</b></div>
+      <div class="kv"><span>Backend</span><b id="i_backend">—</b></div>
+      <div class="kv"><span>Tiempo</span><b id="i_time">—</b></div>
+      <div class="kv"><span>Salida</span><b id="i_out">—</b></div>
+    </div>
+
+    <div class="status" id="status">Listo. Carga una imagen para empezar.</div>
+
+    <button class="btn outline" id="btn-download" type="button" disabled style="margin-top:14px">
+      Descargar PNG
+    </button>
+
+    <p class="hint">
+      Coloca los modelos en <code>./models/</code> o pega una URL en «URL del modelo». Si <code>file://</code> no funciona, sirve la carpeta con <code>python -m http.server</code>.
+    </p>
+  </div>
+
+  <!-- =================== PREVIEW =================== -->
+  <div class="card">
+    <h2>Preview</h2>
+    <div class="preview-grid">
+      <div class="preview-pane">
+        <h3>Original <span class="dim" id="dim-src">—</span></h3>
+        <div class="preview-canvas-wrap">
+          <canvas id="cv-src"></canvas>
+          <div class="empty" id="empty-src">Sin imagen</div>
+        </div>
+      </div>
+      <div class="preview-pane">
+        <h3>Upscale <span class="dim" id="dim-out">—</span></h3>
+        <div class="preview-canvas-wrap">
+          <canvas id="cv-out"></canvas>
+          <div class="empty" id="empty-out">Sin resultado</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+const $ = (id) => document.getElementById(id);
+
+// Defaults — same as the main app so models stay portable. The "anime"
+// model is bundled in the repo; "general" reuses the same file unless
+// the user pastes a custom URL.
+const MODELS = {
+  anime:   './models/realesr-anime-x4.onnx',
+  general: './models/realesr-anime-x4.onnx',
+};
+
+const state = {
+  srcCanvas: null,
+  srcFileName: 'image',
+  srcFileSize: 0,
+  outCanvas: null,
+  outBlob: null,
+  running: false,
+};
+
+// ----- Worker plumbing -----------------------------------------------------
+let worker = null;
+let reqId = 0;
+let activeId = null;
+const pending = new Map();
+
+function getWorker(){
+  if (worker) return worker;
+  worker = new Worker('upscaler.worker.js?v=' + Date.now());
+  worker.onmessage = (e) => {
+    const m = e.data || {};
+    const p = pending.get(m.id);
+    if (!p) return;
+    if (m.type === 'progress'){
+      if (p.onProgress) p.onProgress(m);
+      return;
+    }
+    if (m.type === 'done'){
+      pending.delete(m.id);
+      if (m.ok) p.resolve(m);
+      else p.reject(new Error(m.error || 'upscale failed'));
+    }
+  };
+  worker.onerror = (e) => {
+    for (const [, p] of pending) p.reject(new Error('worker error: ' + e.message));
+    pending.clear();
+  };
+  return worker;
+}
+
+function runWorker(rgba, w, h, opts, onProgress){
+  const wk = getWorker();
+  const id = ++reqId;
+  activeId = id;
+  return new Promise((resolve, reject) => {
+    pending.set(id, { resolve, reject, onProgress });
+    const payload = Object.assign({ id, type: 'run', rgba, width: w, height: h }, opts);
+    wk.postMessage(payload, [rgba.buffer]);
+  });
+}
+
+function cancelActive(){
+  if (activeId == null) return;
+  try { getWorker().postMessage({ id: activeId, type: 'cancel' }); } catch(_){}
+}
+
+// ----- UI helpers ----------------------------------------------------------
+function setStatus(msg, kind){
+  const s = $('status');
+  s.textContent = msg;
+  s.className = 'status' + (kind ? ' ' + kind : '');
+}
+
+function fmtBytes(n){
+  if (!n) return '—';
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/(1024*1024)).toFixed(2) + ' MB';
+}
+
+function drawToCanvas(canvas, source){
+  canvas.width = source.width;
+  canvas.height = source.height;
+  canvas.getContext('2d').drawImage(source, 0, 0);
+}
+
+// ----- File loading --------------------------------------------------------
+async function loadFile(file){
+  if (!file || !/^image\//.test(file.type)){
+    setStatus('Formato no soportado.', 'err');
+    return;
+  }
+  state.srcFileName = (file.name || 'image').replace(/\.[^.]+$/, '');
+  state.srcFileSize = file.size;
+
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error('No pude decodificar la imagen'));
+      im.src = url;
+    });
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    c.getContext('2d').drawImage(img, 0, 0);
+    state.srcCanvas = c;
+    state.outCanvas = null;
+    state.outBlob = null;
+
+    drawToCanvas($('cv-src'), c);
+    $('empty-src').style.display = 'none';
+
+    // Reset output panel
+    const cvOut = $('cv-out');
+    cvOut.width = 0; cvOut.height = 0;
+    $('empty-out').style.display = '';
+    $('dim-out').textContent = '—';
+    $('btn-download').disabled = true;
+
+    $('i_name').textContent = file.name;
+    $('i_dims').textContent = c.width + ' × ' + c.height + ' px';
+    $('i_size').textContent = fmtBytes(file.size);
+    $('dim-src').textContent = c.width + ' × ' + c.height;
+    $('file-info').style.display = '';
+
+    $('btn-run').disabled = false;
+    setStatus('Imagen lista. Elige el modelo y pulsa Upscale.');
+  } catch (err){
+    setStatus('Error: ' + err.message, 'err');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// ----- Run upscale ---------------------------------------------------------
+async function runUpscale(){
+  if (!state.srcCanvas || state.running) return;
+  state.running = true;
+
+  const modelKey = $('model').value;
+  let modelUrl = ($('model_url').value || '').trim();
+  if (!modelUrl) modelUrl = MODELS[modelKey] || MODELS.general;
+  const targetScale = parseInt($('scale').value, 10) || 4;
+  const tile = Math.max(32, parseInt($('tile').value, 10) || 128);
+  const pad  = Math.max(0,  parseInt($('pad').value, 10)  || 8);
+  const preferGpu = $('prefer_gpu').checked;
+  const alphaMode = $('alpha_binary').checked ? 'binary' : 'bilinear';
+  const ortBase   = ($('ort_base').value || '').trim() || undefined;
+
+  $('btn-run').disabled = true;
+  $('btn-cancel').disabled = false;
+  $('btn-download').disabled = true;
+  $('progress-wrap').style.display = '';
+  $('progress').style.width = '0%';
+  $('run-info').style.display = '';
+  $('i_stage').textContent = 'cargando modelo…';
+  $('i_backend').textContent = '—';
+  $('i_time').textContent = '—';
+  $('i_out').textContent = '—';
+  setStatus('Procesando con IA…', 'busy');
+
+  const src = state.srcCanvas;
+  const imgData = src.getContext('2d').getImageData(0, 0, src.width, src.height);
+
+  const t0 = performance.now();
+  try {
+    const result = await runWorker(
+      imgData.data, src.width, src.height,
+      { modelUrl, preferGpu, tile, pad, alphaMode, ortBase },
+      (m) => {
+        $('progress').style.width = (m.pct || 0) + '%';
+        if (m.stage === 'load'){
+          $('i_stage').textContent = 'cargando modelo… ' + (m.pct|0) + '%';
+        } else if (m.stage === 'tile'){
+          $('i_stage').textContent = 'mosaico ' + (m.pct|0) + '%';
+        }
+        if (m.backend){
+          $('i_backend').textContent = (m.backend === 'webgpu') ? 'WebGPU' : 'WASM';
+        }
+      }
+    );
+
+    // Materialize the worker output (already RGBA at result.scale).
+    let out = document.createElement('canvas');
+    out.width = result.width; out.height = result.height;
+    out.getContext('2d').putImageData(
+      new ImageData(result.rgba, result.width, result.height), 0, 0
+    );
+
+    // Optional downsample to user-selected scale.
+    if (targetScale !== result.scale){
+      const tw = Math.max(1, Math.round(src.width  * targetScale));
+      const th = Math.max(1, Math.round(src.height * targetScale));
+      const dn = document.createElement('canvas');
+      dn.width = tw; dn.height = th;
+      const dctx = dn.getContext('2d');
+      dctx.imageSmoothingEnabled = true;
+      dctx.imageSmoothingQuality = 'high';
+      dctx.drawImage(out, 0, 0, tw, th);
+      out = dn;
+    }
+
+    state.outCanvas = out;
+    drawToCanvas($('cv-out'), out);
+    $('empty-out').style.display = 'none';
+    $('dim-out').textContent = out.width + ' × ' + out.height;
+
+    const ms = (performance.now() - t0) | 0;
+    $('progress').style.width = '100%';
+    $('i_stage').textContent = 'listo';
+    $('i_time').textContent = ms + ' ms';
+    $('i_out').textContent = out.width + ' × ' + out.height + ' px';
+    setStatus(
+      'Upscale completado: ' + src.width + '×' + src.height +
+      ' → ' + out.width + '×' + out.height +
+      ' en ' + ms + ' ms (' + (result.backend || '?') + ')',
+      'ok'
+    );
+
+    state.outBlob = await new Promise((resolve) =>
+      out.toBlob(resolve, 'image/png')
+    );
+    $('btn-download').disabled = !state.outBlob;
+  } catch (err){
+    console.error(err);
+    if (String(err.message).includes('cancelled')){
+      setStatus('Cancelado.', 'busy');
+      $('i_stage').textContent = 'cancelado';
+    } else {
+      setStatus('Falló el upscale: ' + err.message, 'err');
+      $('i_stage').textContent = 'falló';
+    }
+  } finally {
+    state.running = false;
+    activeId = null;
+    $('btn-run').disabled = false;
+    $('btn-cancel').disabled = true;
+  }
+}
+
+// ----- Download ------------------------------------------------------------
+function downloadResult(){
+  if (!state.outBlob || !state.outCanvas) return;
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(state.outBlob);
+  const scale = state.outCanvas.width / (state.srcCanvas ? state.srcCanvas.width : 1);
+  const tag = 'x' + (Math.round(scale * 10) / 10);
+  a.href = url;
+  a.download = state.srcFileName + '-upscaled-' + tag + '.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ----- Wiring --------------------------------------------------------------
+$('dropzone').addEventListener('click', () => $('file').click());
+$('dropzone').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') $('file').click();
+});
+$('dropzone').addEventListener('dragover', (e) => {
+  e.preventDefault();
+  $('dropzone').classList.add('over');
+});
+$('dropzone').addEventListener('dragleave', () => $('dropzone').classList.remove('over'));
+$('dropzone').addEventListener('drop', (e) => {
+  e.preventDefault();
+  $('dropzone').classList.remove('over');
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+$('file').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (f) loadFile(f);
+});
+window.addEventListener('paste', (e) => {
+  if (!e.clipboardData) return;
+  for (const item of e.clipboardData.items){
+    if (item.kind === 'file' && /^image\//.test(item.type)){
+      loadFile(item.getAsFile());
+      break;
+    }
+  }
+});
+
+$('model').addEventListener('change', () => {
+  const def = MODELS[$('model').value] || '';
+  $('model_url').placeholder = def || './models/your-model.onnx';
+});
+
+$('btn-run').addEventListener('click', runUpscale);
+$('btn-cancel').addEventListener('click', cancelActive);
+$('btn-download').addEventListener('click', downloadResult);
+
+// Init
+$('model').dispatchEvent(new Event('change'));
+</script>
+
+</body>
+</html>

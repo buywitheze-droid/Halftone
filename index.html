@@ -502,6 +502,63 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 .section-disabled-msg{font-size:11px;color:var(--muted);font-style:italic;margin-top:6px}
 
 /* ==================================================================
+   FLOW STEPS — guided choice between AI upscale and direct halftone
+   ================================================================== */
+.flow-step-title{
+  margin:14px 0 8px;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--cyan);display:flex;align-items:center;gap:8px;
+}
+.flow-step-title::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--cyan);
+  box-shadow:0 0 6px var(--cyan);
+}
+.flow-choice-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;
+}
+@media (max-width:560px){ .flow-choice-grid{ grid-template-columns:1fr } }
+.flow-card{
+  background:#101019;border:1px solid var(--line);border-radius:10px;
+  padding:14px 14px 16px;text-align:left;cursor:pointer;color:var(--text);
+  font-family:inherit;font-size:13px;line-height:1.4;
+  display:flex;flex-direction:column;gap:6px;
+  transition:border-color .15s,background .15s,transform .05s;
+}
+.flow-card:hover{ border-color:var(--cyan); background:rgba(34,224,211,.06); }
+.flow-card:active{ transform:scale(.99); }
+.flow-card .flow-icon{
+  font-size:22px;line-height:1;width:36px;height:36px;display:flex;
+  align-items:center;justify-content:center;border-radius:8px;
+  background:rgba(34,224,211,.1);color:var(--cyan);
+  margin-bottom:4px;
+}
+.flow-card.accent-pink .flow-icon{
+  background:rgba(236,40,145,.1);color:var(--pink);
+}
+.flow-card .flow-title{ font-weight:600;font-size:13px }
+.flow-card .flow-desc{ color:var(--muted);font-size:11px }
+.flow-result-box{
+  background:#101019;border:1px solid var(--line);border-radius:10px;
+  padding:14px;margin-top:12px;
+}
+.flow-result-box .flow-result-title{
+  font-size:12px;color:var(--text);font-weight:600;margin-bottom:4px;
+  display:flex;align-items:center;gap:6px;
+}
+.flow-result-box .flow-result-title::before{
+  content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);
+  box-shadow:0 0 8px rgba(34,197,94,.6);
+}
+.flow-result-box .flow-result-sub{
+  color:var(--muted);font-size:11px;line-height:1.5;margin-bottom:10px;
+}
+.flow-undo{
+  display:block;text-align:center;margin-top:8px;font-size:11px;
+  color:var(--muted);cursor:pointer;background:none;border:none;
+  width:100%;padding:6px;text-decoration:underline;
+}
+.flow-undo:hover{ color:var(--text) }
+
+/* ==================================================================
    DROPZONE MODERNA (estado VACÍO)
    ==================================================================
    Reemplaza el <input type="file"> nativo por una zona grande tipo
@@ -1378,40 +1435,122 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       <input type="checkbox" id="auto_trim" checked hidden>
 
       <div id="prep-block" style="display:none">
-        <!-- Los datos de la imagen original (px, DPI, in) ahora se muestran
-             en la .file-card de arriba. Aquí dejamos solo los CONTROLES de
-             tamaño destino y DPI de trabajo. -->
 
-        <h3>Target size</h3>
-        <div class="row">
-          <div>
-            <label><span class="lbl-text">Width</span> <span class="unit-suffix" id="u_new_w">(in)</span> <i class="help" data-tip="Physical size at which the artwork will be printed. Converted to pixels using the working DPI.">?</i></label>
-            <input type="number" id="new_w_cm" step="0.1" min="0.2" value="12.6">
-          </div>
-          <div>
-            <label><span class="lbl-text">Height</span> <span class="unit-suffix" id="u_new_h">(in)</span> <i class="help" data-tip="If aspect ratio is locked, this adjusts automatically when width changes.">?</i></label>
-            <input type="number" id="new_h_cm" step="0.1" min="0.2" value="12.6">
+        <!-- =====================================================
+             STEP A · CHOOSE PATH
+             After upload the user picks: enhance with AI first, or
+             skip straight to the halftone preparation. Visible only
+             during the 'choose' flow step.
+        ===================================================== -->
+        <div id="flow-choose" style="display:none">
+          <h3 class="flow-step-title" id="flow_choose_title">¿Qué quieres hacer?</h3>
+          <div class="flow-choice-grid">
+            <button type="button" class="flow-card" id="flow-pick-upscale">
+              <div class="flow-icon">✨</div>
+              <div class="flow-title" id="flow_pick_upscale_title">Mejorar con IA primero</div>
+              <div class="flow-desc" id="flow_pick_upscale_desc">Recomendado si la imagen es chica o de baja resolución. Multiplica el detalle ×4 sin perder bordes.</div>
+            </button>
+            <button type="button" class="flow-card accent-pink" id="flow-pick-direct">
+              <div class="flow-icon">⚡</div>
+              <div class="flow-title" id="flow_pick_direct_title">Saltar al semitono</div>
+              <div class="flow-desc" id="flow_pick_direct_desc">La imagen ya tiene suficiente resolución para el tamaño físico que vas a imprimir.</div>
+            </button>
           </div>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="lock_ratio" checked>
-          Lock aspect ratio
-        </label>
 
-        <h3>Working DPI</h3>
-        <label>Output DPI <i class="help" data-tip="Resolution at which the PNG will be generated. 300 dpi is the DTF print standard. Lowering this value during adjustment speeds up rendering.">?</i></label>
-        <input type="number" id="target_dpi" value="300" step="1" min="72" max="1200">
+        <!-- =====================================================
+             STEP B · AI UPSCALE
+             Only visible after the user picked "enhance with AI".
+             Hosts the upscale button, the progress UI, and the
+             post-upscale "continue" panel.
+        ===================================================== -->
+        <div id="flow-upscale-step" style="display:none">
+          <h3 class="flow-step-title" id="h3_upscale">Upscale con IA</h3>
+          <div class="row" style="grid-template-columns:1fr auto;align-items:end">
+            <button class="btn primary" id="btn-upscale" type="button">Mejorar con IA · ×4</button>
+            <button class="btn outline compact" id="btn-upscale-cancel" type="button" style="display:none">Cancel</button>
+          </div>
+          <!-- Hidden controls — kept so the JS reading them stays
+               simple and branch-free. The user never sees them. -->
+          <select id="upscale_model" hidden><option value="anime" selected></option></select>
+          <select id="upscale_scale" hidden><option value="4" selected></option></select>
+          <input type="text" id="upscale_model_url" hidden value="">
+          <input type="number" id="upscale_tile" hidden value="256">
+          <input type="number" id="upscale_pad" hidden value="8">
+          <input type="checkbox" id="upscale_prefer_gpu" hidden checked>
+          <input type="checkbox" id="upscale_alpha_binary" hidden>
 
-        <label class="toggle">
-          <input type="checkbox" id="fast_mode">
-          <span>Fast quality (preview)</span>
-          <i class="help" data-tip="Processes at a maximum of 1200 px on the longest side to keep real-time rendering smooth. Download always uses the full chosen resolution.">?</i>
-        </label>
+          <div id="upscale_box" class="info-box" style="display:none;margin-top:10px">
+            <div class="kv"><span id="upscale_stage_label">Etapa</span><b id="upscale_stage">—</b></div>
+            <div class="ai-progress" style="margin-top:6px;height:6px;background:#101019;border:1px solid var(--line);border-radius:4px;overflow:hidden">
+              <div id="upscale_bar" style="height:100%;width:0;background:linear-gradient(90deg,var(--cyan),#0ca99b);transition:width .15s"></div>
+            </div>
+            <div class="kv" style="margin-top:6px"><span id="upscale_info_label">Aceleración</span><b id="upscale_info">—</b></div>
+          </div>
+          <p class="hint" id="upscale_hint" style="margin-top:6px;font-size:11px;color:var(--muted);line-height:1.4">
+            Procesa todo en tu navegador — la imagen no sale de tu equipo.
+          </p>
 
-        <div class="info-box" style="margin-top:12px">
-          <div class="kv"><span>Output in pixels</span><b id="i_target_px">—</b></div>
-          <div class="kv"><span>Scale factor</span><b id="i_scale">—</b></div>
-          <div class="kv" id="i_fast_row" style="display:none"><span>Preview active</span><b id="i_fast_px" style="color:var(--warn)">—</b></div>
+          <!-- Post-upscale: shows when the AI run finished. The user
+               must explicitly confirm to use the enhanced image. -->
+          <div id="flow-upscale-done" class="flow-result-box" style="display:none">
+            <div class="flow-result-title" id="flow_done_title">Listo</div>
+            <div class="flow-result-sub" id="flow_done_sub">—</div>
+            <button class="btn primary" id="flow-continue-halftone" type="button">
+              Continuar con esta imagen al semitono
+            </button>
+            <button class="flow-undo" id="flow-undo-upscale" type="button">
+              Deshacer y volver a la imagen original
+            </button>
+          </div>
+
+          <button class="flow-undo" id="flow-back-from-upscale" type="button" style="margin-top:10px">
+            ← Volver a elegir
+          </button>
+        </div>
+
+        <!-- =====================================================
+             STEP C · TARGET SIZE / DPI / FAST MODE
+             The traditional prep controls. Visible once the user
+             has either picked "skip" or completed an upscale and
+             clicked "continue".
+        ===================================================== -->
+        <div id="flow-prep" style="display:none">
+          <h3>Target size</h3>
+          <div class="row">
+            <div>
+              <label><span class="lbl-text">Width</span> <span class="unit-suffix" id="u_new_w">(in)</span> <i class="help" data-tip="Physical size at which the artwork will be printed. Converted to pixels using the working DPI.">?</i></label>
+              <input type="number" id="new_w_cm" step="0.1" min="0.2" value="12.6">
+            </div>
+            <div>
+              <label><span class="lbl-text">Height</span> <span class="unit-suffix" id="u_new_h">(in)</span> <i class="help" data-tip="If aspect ratio is locked, this adjusts automatically when width changes.">?</i></label>
+              <input type="number" id="new_h_cm" step="0.1" min="0.2" value="12.6">
+            </div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="lock_ratio" checked>
+            Lock aspect ratio
+          </label>
+
+          <h3>Working DPI</h3>
+          <label>Output DPI <i class="help" data-tip="Resolution at which the PNG will be generated. 300 dpi is the DTF print standard. Lowering this value during adjustment speeds up rendering.">?</i></label>
+          <input type="number" id="target_dpi" value="300" step="1" min="72" max="1200">
+
+          <label class="toggle">
+            <input type="checkbox" id="fast_mode">
+            <span>Fast quality (preview)</span>
+            <i class="help" data-tip="Processes at a maximum of 1200 px on the longest side to keep real-time rendering smooth. Download always uses the full chosen resolution.">?</i>
+          </label>
+
+          <div class="info-box" style="margin-top:12px">
+            <div class="kv"><span>Output in pixels</span><b id="i_target_px">—</b></div>
+            <div class="kv"><span>Scale factor</span><b id="i_scale">—</b></div>
+            <div class="kv" id="i_fast_row" style="display:none"><span>Preview active</span><b id="i_fast_px" style="color:var(--warn)">—</b></div>
+          </div>
+
+          <button class="flow-undo" id="flow-back-to-choose" type="button" style="margin-top:10px">
+            ← Volver a elegir
+          </button>
         </div>
       </div>
     </div>
@@ -1772,6 +1911,354 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   }
 
   // ==================================================================
+  //   AI UPSCALE — Real-ESRGAN via ONNX Runtime Web
+  // ==================================================================
+  //   Lives in upscaler.worker.js. Lazy-loaded the first time the user
+  //   clicks "Upscale with AI". One worker instance is reused for the
+  //   whole session so the model only gets compiled once.
+  //
+  //   Default model URLs point to a local ./models/ folder. Drop the
+  //   .onnx files there (see README) — or paste a URL in the advanced
+  //   "Model URL" input to override them.
+  // ==================================================================
+  // Single bundled model: anime / line-art Real-ESRGAN x4. Shipped in
+  // ./models/ alongside the app, so no download is required from the
+  // user's perspective. The "general" key is kept for future use; the
+  // selector in the UI is hidden and locked to "anime".
+  const UPSCALE_MODELS = {
+    anime:   './models/realesr-anime-x4.onnx',
+    general: './models/realesr-anime-x4.onnx',
+  };
+  let upscaleWorker = null;
+  let upscaleReqId  = 0;
+  let upscaleActiveId = null;
+  const upscalePending = new Map();    // id -> { resolve, reject, onProgress }
+
+  function getUpscaleWorker(){
+    if (upscaleWorker || upscaleWorker === false) return upscaleWorker || null;
+    try {
+      upscaleWorker = new Worker('upscaler.worker.js?v=' + (window.APP_BUILD || Date.now()));
+      upscaleWorker.onmessage = (e) => {
+        const m = e.data || {};
+        const p = upscalePending.get(m.id);
+        if (!p) return;
+        if (m.type === 'progress'){
+          if (p.onProgress) try { p.onProgress(m); } catch(_){}
+          return;
+        }
+        if (m.type === 'done'){
+          upscalePending.delete(m.id);
+          if (m.ok) p.resolve(m);
+          else p.reject(new Error(m.error || 'upscale failed'));
+        }
+      };
+      upscaleWorker.onerror = (e) => {
+        console.warn('Upscale worker error:', e.message);
+        for (const [, p] of upscalePending) p.reject(new Error('upscale worker error'));
+        upscalePending.clear();
+        try { upscaleWorker.terminate(); } catch(_){}
+        upscaleWorker = false;
+      };
+      return upscaleWorker;
+    } catch (err){
+      console.warn('Upscale worker unavailable:', err.message);
+      upscaleWorker = false;
+      return null;
+    }
+  }
+
+  function runInUpscaleWorker(rgba, width, height, opts, onProgress){
+    const w = getUpscaleWorker();
+    if (!w) return Promise.reject(new Error('Upscale worker not available'));
+    const id = ++upscaleReqId;
+    upscaleActiveId = id;
+    return new Promise((resolve, reject) => {
+      upscalePending.set(id, { resolve, reject, onProgress });
+      try {
+        const payload = Object.assign({ id, type: 'run', rgba, width, height }, opts);
+        w.postMessage(payload, [rgba.buffer]);
+      } catch (err){
+        upscalePending.delete(id);
+        reject(err);
+      }
+    });
+  }
+
+  function cancelActiveUpscale(){
+    if (upscaleActiveId == null) return;
+    const w = getUpscaleWorker();
+    if (w) try { w.postMessage({ id: upscaleActiveId, type: 'cancel' }); } catch(_){}
+  }
+
+  // ==================================================================
+  //   FLOW STATE MACHINE
+  // ==================================================================
+  //   States:
+  //     idle      → no image loaded
+  //     choose    → image loaded, awaiting user's path decision
+  //     upscale   → user picked AI path; sees the AI button + hints
+  //     upscaling → AI upscale in progress (button disabled, cancel on)
+  //     upscaled  → AI upscale done, post-upscale "continue" panel up
+  //     ready     → user finished prep; the rest of the pipeline is
+  //                 unlocked (tonal, garment, screen, processing)
+  // ==================================================================
+  function setFlowStep(step){
+    S.flowStep = step;
+    const showChoose   = step === 'choose';
+    const showUpscale  = step === 'upscale' || step === 'upscaling' || step === 'upscaled';
+    const showDone     = step === 'upscaled';
+    const showPrep     = step === 'ready';
+    const cardsEnabled = step === 'ready';
+
+    const fc = $('flow-choose');       if (fc) fc.style.display   = showChoose  ? '' : 'none';
+    const fu = $('flow-upscale-step'); if (fu) fu.style.display   = showUpscale ? '' : 'none';
+    const fd = $('flow-upscale-done'); if (fd) fd.style.display   = showDone    ? '' : 'none';
+    const fp = $('flow-prep');         if (fp) fp.style.display   = showPrep    ? '' : 'none';
+
+    // Inside the upscale step, hide the AI button row once the upscale
+    // is done (re-clicking would compound-upscale the already-enhanced
+    // image). The done panel exposes Continue + Undo as the only next
+    // steps. Same logic for the redundant "← Back" link.
+    const btn  = $('btn-upscale');
+    const back = $('flow-back-from-upscale');
+    const hint = $('upscale_hint');
+    if (btn && btn.parentElement){
+      btn.parentElement.style.display = (step === 'upscaled') ? 'none' : '';
+    }
+    if (back) back.style.display = (step === 'upscaled' || step === 'upscaling') ? 'none' : '';
+    if (hint) hint.style.display = (step === 'upscaled') ? 'none' : '';
+
+    // When leaving the 'ready' step, drop any queued live-preview pass.
+    // We don't want stale debounced work to fire after the user has
+    // navigated back to the choice screen. Wrap in try/catch because
+    // `debounceTimer` is declared later in the script with `let` — if
+    // for any reason this runs before that line executes, the access
+    // would be a TDZ error.
+    if (!cardsEnabled){
+      try { clearTimeout(debounceTimer); } catch(_){}
+    }
+
+    $('card-tonal').classList.toggle('disabled-card',  !cardsEnabled);
+    $('card-garment').classList.toggle('disabled-card', !cardsEnabled);
+    $('card-screen').classList.toggle('disabled-card',  !cardsEnabled);
+    const bp1 = $('btn-process');  if (bp1) bp1.disabled = !cardsEnabled;
+    const bp2 = $('btn-process-2');if (bp2) bp2.disabled = !cardsEnabled;
+  }
+
+  // Called when the user has decided to use the (possibly enhanced)
+  // current sourceCanvas for the rest of the pipeline. Suggests a
+  // target size based on the new pixel density and kicks off the first
+  // automatic process pass.
+  function enterReadyFromCurrentSource(){
+    if (!S.sourceCanvas) return;
+    // Re-suggest target size from the (possibly upscaled) source.
+    const wIn = S.sourceCanvas.width / (S.sourceDpi || 72);
+    let suggIn;
+    if (wIn >= 20) suggIn = 12.6;
+    else if (wIn > 0) suggIn = +wIn.toFixed(1);
+    else suggIn = 12.6;
+    const suggDisp = fromInches(suggIn);
+    $('new_w_cm').value = suggDisp.toFixed(UNIT === 'cm' ? 1 : 1);
+    $('new_h_cm').value = (suggDisp * S.ratio).toFixed(2);
+
+    setFlowStep('ready');
+    if (typeof updateTargetInfo === 'function') updateTargetInfo();
+    setStatus(T('Generating first result...', 'Generando primer resultado...'), 'busy');
+    scheduleProcess(0);
+  }
+
+  // High-level "do an upscale on the current source". Replaces
+  // S.sourceCanvas with the upscaled bitmap, updates the file card and
+  // re-suggests target physical dimensions so the user keeps the same
+  // print size with the new (denser) pixels.
+  async function performUpscale(){
+    if (!S.sourceCanvas){
+      setStatus(T('Load an image first.', 'Carga una imagen primero.'), 'err');
+      return;
+    }
+    const modelKey = $('upscale_model').value;
+    let modelUrl = ($('upscale_model_url').value || '').trim();
+    if (!modelUrl) modelUrl = UPSCALE_MODELS[modelKey] || UPSCALE_MODELS.general;
+    const targetScale = parseInt($('upscale_scale').value, 10) || 4;
+    const tile  = Math.max(32, parseInt($('upscale_tile').value, 10) || 128);
+    const pad   = Math.max(0,  parseInt($('upscale_pad').value, 10)  || 8);
+    const preferGpu = $('upscale_prefer_gpu').checked;
+    const alphaMode = $('upscale_alpha_binary').checked ? 'binary' : 'bilinear';
+
+    // Snapshot the ORIGINAL source canvas (only the first time the user
+    // upscales — re-running the upscale should not double-snapshot).
+    if (!S.originalSourceCanvas){
+      S.originalSourceCanvas    = S.sourceCanvas;
+      S.originalSourceDpi       = S.sourceDpi;
+      S.originalSourceDpiKnown  = S.sourceDpiKnown;
+    }
+
+    // SMART PRE-DOWNSAMPLE
+    // ---------------------------------------------------------------
+    // Real-ESRGAN multiplies the source by `targetScale` (typically 4).
+    // For DTF a useful output sits around 4000 px on the long side
+    // (32 cm × 300 dpi ≈ 3780 px). Running the AI on a 3000+ px source
+    // produces a 12000+ px output that we're going to throw away in
+    // the downsample-to-print step anyway. Worse: it spends minutes
+    // there. So we cap the input at MAX_AI_SRC_LONG before inference
+    // — the quality of the resulting tonal+halftone pipeline is
+    // visually identical, but 10–30× faster.
+    const MAX_AI_SRC_LONG = 1500;
+    const rawSrc = S.sourceCanvas;
+    let src = rawSrc;
+    const longSide = Math.max(rawSrc.width, rawSrc.height);
+    let prescaleFactor = 1;
+    if (longSide > MAX_AI_SRC_LONG){
+      prescaleFactor = MAX_AI_SRC_LONG / longSide;
+      const sw = Math.max(1, Math.round(rawSrc.width  * prescaleFactor));
+      const sh = Math.max(1, Math.round(rawSrc.height * prescaleFactor));
+      const pre = document.createElement('canvas');
+      pre.width = sw; pre.height = sh;
+      const pctx = pre.getContext('2d');
+      pctx.imageSmoothingEnabled = true;
+      pctx.imageSmoothingQuality = 'high';
+      pctx.drawImage(rawSrc, 0, 0, sw, sh);
+      src = pre;
+    }
+    const sctx = src.getContext('2d');
+    const imgData = sctx.getImageData(0, 0, src.width, src.height);
+
+    const box   = $('upscale_box');
+    const bar   = $('upscale_bar');
+    const stage = $('upscale_stage');
+    const info  = $('upscale_info');
+    const btn   = $('btn-upscale');
+    const cancelBtn = $('btn-upscale-cancel');
+    box.style.display = '';
+    bar.style.width = '0%';
+    stage.textContent = T('loading model…', 'cargando modelo…');
+    info.textContent = '—';
+    btn.disabled = true;
+    cancelBtn.style.display = '';
+    // Hide the back button while the AI is busy — pressing it mid-run
+    // would leave the worker churning on data we no longer care about.
+    const flowBack = $('flow-back-from-upscale');
+    if (flowBack) flowBack.style.display = 'none';
+    S.flowStep = 'upscaling';
+    setStatus(T('Upscaling with AI… (may take a few seconds)',
+                'Mejorando con IA… (puede tardar unos segundos)'), 'busy');
+
+    const t0 = performance.now();
+    try {
+      const result = await runInUpscaleWorker(
+        imgData.data, src.width, src.height,
+        { modelUrl, preferGpu, tile, pad, alphaMode },
+        (m) => {
+          bar.style.width = (m.pct || 0) + '%';
+          if (m.stage === 'load'){
+            stage.textContent = T('loading model…', 'cargando modelo…');
+          } else if (m.stage === 'tile'){
+            stage.textContent = T(`tile ${m.pct}%`, `mosaico ${m.pct}%`);
+          }
+          if (m.backend) info.textContent = m.backend === 'webgpu' ? 'WebGPU' : 'WASM';
+        }
+      );
+
+      // Materialize the AI output. Optionally downsample it (×2 mode)
+      // — never UP-sample past it, because bicubic past AI output kills
+      // the detail we just paid for.
+      let upCanvas = document.createElement('canvas');
+      upCanvas.width  = result.width;
+      upCanvas.height = result.height;
+      upCanvas.getContext('2d').putImageData(
+        new ImageData(result.rgba, result.width, result.height), 0, 0,
+      );
+      if (targetScale === 2 && result.scale === 4){
+        const tw = Math.max(1, Math.round(upCanvas.width  * 0.5));
+        const th = Math.max(1, Math.round(upCanvas.height * 0.5));
+        const dn = document.createElement('canvas');
+        dn.width = tw; dn.height = th;
+        const dctx = dn.getContext('2d');
+        dctx.imageSmoothingEnabled = true;
+        dctx.imageSmoothingQuality = 'high';
+        dctx.drawImage(upCanvas, 0, 0, tw, th);
+        upCanvas = dn;
+      }
+
+      // Effective scale (vs the user's ORIGINAL canvas, accounting for
+      // any internal pre-downsample). Used to keep the printed physical
+      // size constant by adjusting DPI.
+      const effectiveScale = upCanvas.width / rawSrc.width;
+
+      S.sourceCanvas = upCanvas;
+      S.origW = upCanvas.width;
+      S.origH = upCanvas.height;
+      S.sourceDpi = (S.sourceDpi || 72) * effectiveScale;
+      S.sourceDpiKnown = true;
+      S.workingCanvas = null;
+      populateFileCard(upCanvas);
+
+      const ms = (performance.now() - t0) | 0;
+      stage.textContent = T(`done · ${ms} ms`, `listo · ${ms} ms`);
+      bar.style.width = '100%';
+      const backendTag = (result.backend || 'wasm').toUpperCase();
+      const eff = (Math.round(effectiveScale * 10) / 10);
+      const prescaleNote = (prescaleFactor < 1)
+        ? T(` (capped for speed)`, ` (recortado por velocidad)`)
+        : '';
+      setStatus(T(
+        `Upscaled ${rawSrc.width}×${rawSrc.height} → ${upCanvas.width}×${upCanvas.height} ×${eff} (${backendTag})${prescaleNote}`,
+        `Upscale ${rawSrc.width}×${rawSrc.height} → ${upCanvas.width}×${upCanvas.height} ×${eff} (${backendTag})${prescaleNote}`,
+      ), 'ok');
+
+      // Surface the post-upscale confirmation panel.
+      const doneTitle = $('flow_done_title');
+      const doneSub   = $('flow_done_sub');
+      if (doneTitle){
+        doneTitle.textContent = T('Image enhanced', 'Imagen mejorada');
+      }
+      if (doneSub){
+        doneSub.textContent =
+          `${rawSrc.width}×${rawSrc.height} → ${upCanvas.width}×${upCanvas.height} px (×${eff}) · ${ms} ms · ${backendTag}`;
+      }
+      setFlowStep('upscaled');
+    } catch (err){
+      console.error('Upscale failed:', err);
+      stage.textContent = T('failed', 'falló');
+      bar.style.width = '0%';
+      const errMsg = String((err && err.message) || err);
+      if (/cancelled/i.test(errMsg)){
+        setStatus(T('Upscale cancelled.', 'Upscale cancelado.'), 'busy');
+      } else {
+        setStatus(T('Upscale failed: ', 'Falló el upscale: ') + errMsg, 'err');
+      }
+      // Stay on the upscale step so the user can retry or go back.
+      S.flowStep = 'upscale';
+    } finally {
+      btn.disabled = false;
+      cancelBtn.style.display = 'none';
+      if (flowBack) flowBack.style.display = '';
+      upscaleActiveId = null;
+    }
+  }
+
+  // Restore the pre-upscale source canvas and put the flow back where
+  // the user was before they ran the AI enhancement.
+  function undoUpscale(){
+    if (!S.originalSourceCanvas) return;
+    S.sourceCanvas       = S.originalSourceCanvas;
+    S.origW              = S.sourceCanvas.width;
+    S.origH              = S.sourceCanvas.height;
+    S.sourceDpi          = S.originalSourceDpi;
+    S.sourceDpiKnown     = S.originalSourceDpiKnown;
+    S.workingCanvas      = null;
+    S.originalSourceCanvas    = null;
+    S.originalSourceDpi       = 72;
+    S.originalSourceDpiKnown  = false;
+    populateFileCard(S.sourceCanvas);
+    // Reset the upscale progress UI for the next attempt.
+    const box   = $('upscale_box');   if (box)   box.style.display = 'none';
+    const bar   = $('upscale_bar');   if (bar)   bar.style.width   = '0%';
+    const stage = $('upscale_stage'); if (stage) stage.textContent = '—';
+    const info  = $('upscale_info');  if (info)  info.textContent  = '—';
+  }
+
+  // ==================================================================
   //   SERVICE WORKER — disabled during active development
   // ==================================================================
   //   The previous cache-first service worker was serving stale HTML
@@ -1828,6 +2315,14 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     workingCanvas: null,
     // Resultado actual (para repintar entre modos sin reprocesar)
     lastResult: null,            // { w, h, dpi, colorData, alphaArray, tone, fastMode, halftoneOn }
+    // Flow machine: 'idle' → 'choose' → ('upscaling' → 'upscaled' → 'ready') | 'ready'
+    flowStep: 'idle',
+    // Snapshot of the ORIGINAL sourceCanvas before AI upscale, so the
+    // user can undo the enhancement and pick a different path without
+    // having to re-upload the file.
+    originalSourceCanvas: null,
+    originalSourceDpi: 72,
+    originalSourceDpiKnown: false,
   };
   // Nota: S.garmentColor.lab se rellena más abajo (después de que srgbToOklab
   // tenga su LUT inicializada). NO calcular aquí: este bloque se ejecuta
@@ -2208,14 +2703,16 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     S.fileFullName = '';
     S.fileSize = 0;
     S.fileHasAlpha = false;
+    S.originalSourceCanvas    = null;
+    S.originalSourceDpi       = 72;
+    S.originalSourceDpiKnown  = false;
     $('fileCard').style.display = 'none';
     $('prep-block').style.display = 'none';
     $('dropzone').style.display = '';
     $('dropzone').classList.remove('loading','error','dragover');
-    $('card-tonal').classList.add('disabled-card');
-    $('card-garment').classList.add('disabled-card');
-    $('card-screen').classList.add('disabled-card');
-    $('btn-process').disabled = true;
+    // Force the flow back to idle (this also re-disables the downstream
+    // cards and the process buttons).
+    setFlowStep('idle');
     // Limpiar el viewer y volver al estado "vacío" del preview.
     const viewer = $('viewer');
     if (viewer) viewer.classList.remove('has-image','grabbing','picking','view-original','view-mask','view-zones');
@@ -2349,13 +2846,18 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       const _pb = $('prefsBar'); if (_pb) _pb.classList.remove('attention');
 
       $('prep-block').style.display = '';
-      $('card-tonal').classList.remove('disabled-card');
-      $('card-garment').classList.remove('disabled-card');
-      $('card-screen').classList.remove('disabled-card');
-      $('btn-process').disabled = false;
+      // Reset any leftover state from a previous upscale.
+      S.originalSourceCanvas    = null;
+      S.originalSourceDpi       = 72;
+      S.originalSourceDpiKnown  = false;
+      const ubox = $('upscale_box');   if (ubox) ubox.style.display = 'none';
+      const ubar = $('upscale_bar');   if (ubar) ubar.style.width   = '0%';
+      // Enter the choose step. The other cards stay disabled until
+      // the user explicitly picks a path (upscale or skip).
+      setFlowStep('choose');
       updateTargetInfo();
-      setStatus(T('Image ready. Generating first result...', 'Imagen lista. Generando primer resultado...'));
-      scheduleProcess(0);
+      setStatus(T('Image ready. Pick a path: enhance with AI or skip to halftone.',
+                  'Imagen lista. Elige un camino: mejorar con IA o saltar al semitono.'));
     } catch (err){
       console.error(err);
       setDropzoneError(err && err.message ? err.message : 'Could not load image');
@@ -3144,6 +3646,78 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     return run;
   }
 
+  // ---- AI Upscale + flow bindings ----
+  (function bindUpscaleUI(){
+    const btn    = $('btn-upscale');
+    const cancel = $('btn-upscale-cancel');
+    if (btn) btn.addEventListener('click', () => { performUpscale(); });
+    if (cancel) cancel.addEventListener('click', () => { cancelActiveUpscale(); });
+
+    // STEP A — choose path
+    const pickUpscale = $('flow-pick-upscale');
+    const pickDirect  = $('flow-pick-direct');
+    if (pickUpscale){
+      pickUpscale.addEventListener('click', () => {
+        if (!S.sourceCanvas) return;
+        setFlowStep('upscale');
+        setStatus(T('Ready to enhance. Click the button to start.',
+                    'Listo para mejorar. Pulsa el botón para empezar.'));
+      });
+    }
+    if (pickDirect){
+      pickDirect.addEventListener('click', () => {
+        if (!S.sourceCanvas) return;
+        enterReadyFromCurrentSource();
+      });
+    }
+
+    // STEP B — back to choice, before / after upscale
+    const backFromUp = $('flow-back-from-upscale');
+    if (backFromUp){
+      backFromUp.addEventListener('click', () => {
+        if (S.flowStep === 'upscaling') return; // ignore while busy
+        // If we had run an upscale that's still being held, restore.
+        if (S.originalSourceCanvas) undoUpscale();
+        setFlowStep('choose');
+        setStatus(T('Pick a path: enhance with AI or skip to halftone.',
+                    'Elige un camino: mejorar con IA o saltar al semitono.'));
+      });
+    }
+
+    // STEP B → C — confirm enhanced image and move on to halftone
+    const goHalftone = $('flow-continue-halftone');
+    if (goHalftone){
+      goHalftone.addEventListener('click', () => {
+        if (!S.sourceCanvas) return;
+        enterReadyFromCurrentSource();
+      });
+    }
+
+    // STEP B → A — discard upscale and go back to the choice
+    const undoBtn = $('flow-undo-upscale');
+    if (undoBtn){
+      undoBtn.addEventListener('click', () => {
+        undoUpscale();
+        setFlowStep('choose');
+        setStatus(T('Image restored. Pick a path again.',
+                    'Imagen restaurada. Elige de nuevo el camino.'));
+      });
+    }
+
+    // STEP C — back to choice from the prep panel
+    const backToChoose = $('flow-back-to-choose');
+    if (backToChoose){
+      backToChoose.addEventListener('click', () => {
+        // If the prep was reached after an upscale, undo it so the
+        // user is choosing on the original image again.
+        if (S.originalSourceCanvas) undoUpscale();
+        setFlowStep('choose');
+        setStatus(T('Pick a path: enhance with AI or skip to halftone.',
+                    'Elige un camino: mejorar con IA o saltar al semitono.'));
+      });
+    }
+  })();
+
   $('btn-process').addEventListener('click', async () => {
     clearTimeout(debounceTimer);
     // Explicit user intent → apply halftone for this pass.
@@ -3851,6 +4425,31 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     { sel: '#i_target_px',  attr: '__sibling_label__', en: 'Output in pixels', es: 'Salida en píxeles' },
     { sel: '#i_scale',      attr: '__sibling_label__', en: 'Scale factor', es: 'Factor de escala' },
     { sel: '#i_fast_px',    attr: '__sibling_label__', en: 'Preview active', es: 'Vista previa activa' },
+
+    // ---- AI Upscale ----
+    { sel: '#h3_upscale',            en: 'AI Upscale',                            es: 'Upscale con IA' },
+    { sel: '#btn-upscale',           en: 'Enhance with AI · ×4',                  es: 'Mejorar con IA · ×4' },
+    { sel: '#btn-upscale-cancel',    en: 'Cancel',                                es: 'Cancelar' },
+    { sel: '#upscale_stage_label',   en: 'Stage',                                 es: 'Etapa' },
+    { sel: '#upscale_info_label',    en: 'Backend',                               es: 'Aceleración' },
+    { sel: '#upscale_hint',
+      en: 'Runs locally in your browser — the image never leaves your device.',
+      es: 'Procesa todo en tu navegador — la imagen no sale de tu equipo.' },
+
+    // ---- Flow step strings ----
+    { sel: '#flow_choose_title',       en: 'What do you want to do?',     es: '¿Qué quieres hacer?' },
+    { sel: '#flow_pick_upscale_title', en: 'Enhance with AI first',       es: 'Mejorar con IA primero' },
+    { sel: '#flow_pick_upscale_desc',
+      en: 'Recommended for small or low-resolution artwork. Multiplies detail ×4 without softening edges.',
+      es: 'Recomendado si la imagen es chica o de baja resolución. Multiplica el detalle ×4 sin perder bordes.' },
+    { sel: '#flow_pick_direct_title',  en: 'Skip to halftone',            es: 'Saltar al semitono' },
+    { sel: '#flow_pick_direct_desc',
+      en: 'The image already has enough resolution for the print size you need.',
+      es: 'La imagen ya tiene suficiente resolución para el tamaño físico que vas a imprimir.' },
+    { sel: '#flow-continue-halftone',  en: 'Continue with this image to halftone', es: 'Continuar con esta imagen al semitono' },
+    { sel: '#flow-undo-upscale',       en: 'Undo and go back to the original image', es: 'Deshacer y volver a la imagen original' },
+    { sel: '#flow-back-from-upscale',  en: '← Back to choice',            es: '← Volver a elegir' },
+    { sel: '#flow-back-to-choose',     en: '← Back to choice',            es: '← Volver a elegir' },
 
     // ---- Card 2: Image Adjustments ----
     { sel: '#card-tonal > h2', en: 'Image Adjustments', es: 'Ajustes de imagen' },
