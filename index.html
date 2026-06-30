@@ -919,19 +919,21 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   .view-tabs::-webkit-scrollbar{display:none}
   .vtab{padding:10px 16px;font-size:13px;flex-shrink:0;min-height:42px}
 
-  /* Viewer toolbar: balance "tappable" vs "no overflow" — the toolbar
-     has ~10 items, so on narrow phones we let it wrap to two rows and
-     keep buttons just big enough for finger taps. */
+  /* Viewer toolbar: must stay single-row and small enough to NOT
+     overlap the artwork preview. The background selector (4 swatches)
+     is the bulkiest part and is purely preview-cosmetic — we hide it
+     on phones; users can still rely on the checker default and switch
+     via the Result/Mask/Zones tabs. The remaining 5 controls fit in
+     one tidy row at ~30 px each. */
   .viewer-toolbar{
-    padding:5px;gap:2px;top:8px;right:8px;
-    flex-wrap:wrap;justify-content:flex-end;
+    padding:4px;gap:2px;top:8px;right:8px;
+    flex-wrap:nowrap;justify-content:flex-end;
     max-width:calc(100% - 16px);
   }
-  .viewer-toolbar button{width:32px;height:30px;font-size:13px}
-  .viewer-toolbar .zoom-level{min-width:42px;font-size:11px;padding:0 4px}
-  .viewer-toolbar .sep{height:16px;margin:0 2px}
-  .bg-opt{width:28px;height:26px}
-  .bg-icon{width:14px;height:14px}
+  .viewer-toolbar button{width:30px;height:28px;font-size:12px}
+  .viewer-toolbar .zoom-level{min-width:36px;font-size:10px;padding:0 3px}
+  .viewer-toolbar .sep{height:14px;margin:0 1px}
+  .viewer-toolbar .bg-selector{display:none}
 
   /* HUD smaller and unobtrusive */
   .viewer-hud{font-size:10px;padding:5px 8px;bottom:8px;left:8px}
@@ -993,6 +995,54 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 }
 .wrap.has-image .action-bar{ display:flex; }
 .action-bar .btn{ margin-top:0 }
+
+/* ==================================================================
+   PROCESS BUTTON · SUCCESS PULSE (green check after processing)
+   ==================================================================
+   Briefly morphs the primary "Process" button to green with a "✓"
+   glyph after a successful processing pass. Pure CSS — animation
+   self-removes after 1.6 s when JS strips the class. */
+.btn.success-pulse{
+  animation: btnSuccessPulse 1.6s ease-out;
+  position:relative;
+}
+.btn.success-pulse::after{
+  content:"✓";
+  display:inline-block;
+  margin-left:8px;
+  font-weight:900;
+  opacity:0;
+  animation: btnCheckIn 1.6s ease-out;
+}
+@keyframes btnSuccessPulse{
+  0%   { box-shadow: 0 6px 18px rgba(34,224,211,.25),
+                     0 0 0 0 rgba(34,197,94,0); }
+  20%  {
+    background: linear-gradient(135deg,#22c55e,#16a34a);
+    color:#ffffff;
+    box-shadow: 0 8px 22px rgba(34,197,94,.45),
+                0 0 0 6px rgba(34,197,94,.18);
+  }
+  60%  {
+    background: linear-gradient(135deg,#22c55e,#16a34a);
+    color:#ffffff;
+    box-shadow: 0 6px 18px rgba(34,197,94,.30),
+                0 0 0 0 rgba(34,197,94,0);
+  }
+  100% { box-shadow: 0 6px 18px rgba(34,224,211,.25),
+                     0 0 0 0 rgba(34,197,94,0); }
+}
+@keyframes btnCheckIn{
+  0%, 10% { opacity:0; transform: scale(.4) rotate(-12deg); }
+  25%     { opacity:1; transform: scale(1.25) rotate(0); }
+  35%     { opacity:1; transform: scale(1) rotate(0); }
+  80%     { opacity:1; transform: scale(1) rotate(0); }
+  100%    { opacity:0; transform: scale(.95) rotate(0); }
+}
+@media (prefers-reduced-motion: reduce){
+  .btn.success-pulse,
+  .btn.success-pulse::after{ animation:none }
+}
 
 /* On phones the action-bar is pinned to the viewport bottom so the
    "Process" / "Download" CTA is always one tap away regardless of how
@@ -3806,23 +3856,40 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     }
   })();
 
+  // Briefly flash a green "✓" pulse on both process buttons (the
+  // canonical one inside card 4 and the sticky CTA at the bottom).
+  // Driven from CSS — we just toggle the class and remove it after
+  // the keyframes finish.
+  function flashProcessSuccess(){
+    const targets = [$('btn-process'), $('btn-process-2')].filter(Boolean);
+    targets.forEach((b) => {
+      b.classList.remove('success-pulse');
+      // Reflow forces the animation to restart even if it was mid-flight
+      void b.offsetWidth;
+      b.classList.add('success-pulse');
+    });
+    setTimeout(() => {
+      targets.forEach((b) => b.classList.remove('success-pulse'));
+    }, 1700);
+  }
+
   $('btn-process').addEventListener('click', async () => {
     clearTimeout(debounceTimer);
     // Explicit user intent → apply halftone for this pass.
     S.halftoneActive = true;
-    await runOnce();
-    // Second pass: if the halftone cleared away a solid ink block that
-    // surrounded the artwork, the result now has new transparent
-    // borders. Auto-retrim the SOURCE to the result's tight bbox and
-    // process once more so the exported file is pixel-tight. Gated on
-    // the same "auto-trim" toggle the user already controls in Step 1.
-    const autoTrim = $('auto_trim');
-    if (autoTrim && autoTrim.checked){
-      const trimmed = autoTrimSourceFromResult();
-      if (trimmed){
-        setStatus(T('Auto-retrimming to halftone bounds…', 'Recortando a los límites del semitono…'), 'busy');
-        await runOnce();
+    try {
+      await runOnce();
+      const autoTrim = $('auto_trim');
+      if (autoTrim && autoTrim.checked){
+        const trimmed = autoTrimSourceFromResult();
+        if (trimmed){
+          setStatus(T('Auto-retrimming to halftone bounds…', 'Recortando a los límites del semitono…'), 'busy');
+          await runOnce();
+        }
       }
+      flashProcessSuccess();
+    } catch (err){
+      console.error('Process failed:', err);
     }
   });
 
