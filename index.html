@@ -821,14 +821,16 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   .wrap{
     grid-template-columns:1fr;
     grid-template-areas:"viewer" "controls";
-    height:auto;min-height:auto;gap:16px;
+    height:auto;min-height:auto;gap:16px;max-width:100%;
   }
-  .col-left{grid-area:controls;overflow:visible;padding-right:0;margin-right:0}
+  .wrap:not(.has-image){max-width:100%}
+  .col-left{grid-area:controls;overflow:visible;padding-right:0;margin-right:0;min-width:0}
   .wrap > .card{
     grid-area:viewer;
     height:60vh;min-height:340px;max-height:62vh;
     position:sticky;top:8px;z-index:5;
     box-shadow:0 8px 24px rgba(0,0,0,.4);
+    min-width:0;
   }
   /* On mobile the UX toggle isn't sticky inside the controls column —
      the viewer is the sticky surface, and the toggle scrolls with controls. */
@@ -838,12 +840,32 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 /* ==================================================================
    MOBILE / TOUCH OPTIMIZATIONS (≤640px)
    ==================================================================
-   Bigger touch targets, iOS-safe inputs, sticky download bar, etc. */
+   Bigger touch targets, iOS-safe inputs, viewport-fixed action bar.
+   The viewer stops being sticky here — it flows naturally at the top
+   so the user has full real estate for the controls below. The action
+   bar takes over as the always-visible CTA via position:fixed. */
 @media(max-width:640px){
-  body{padding:10px;font-size:14px}
+  body{padding:10px;font-size:14px;
+       /* Top padding clears the fixed prefs-bar (language + units).
+          Without this the prefs-bar overlaps the top-right corner
+          of whatever card is at the top (dropzone, viewer, file-card). */
+       padding-top:max(72px, calc(64px + env(safe-area-inset-top)));
+       /* Extra bottom padding so the fixed action-bar never covers
+          the last bit of controls. ~88 px = action-bar height + safe
+          area on iPhones with home indicator. */
+       padding-bottom:max(96px,calc(96px + env(safe-area-inset-bottom)));
+       overflow-x:hidden}
   .card{padding:14px;border-radius:12px}
   .wrap{gap:12px}
-  .wrap > .card{height:54vh;min-height:300px;max-height:58vh;top:0}
+
+  /* Viewer: natural flow at the top of the page (no longer sticky).
+     A capped aspect ratio keeps the canvas a reasonable height on tall
+     phones without stealing the whole screen. */
+  .wrap > .card{
+    position:static;height:auto;min-height:0;max-height:none;
+    aspect-ratio: 4/3; max-height: 62vh;
+  }
+  .wrap > .card > .viewer{height:auto}
 
   /* Bigger buttons — 44px is Apple HIG / Material minimum touch target */
   .btn{min-height:46px;padding:13px 14px;font-size:14px;border-radius:12px}
@@ -886,12 +908,19 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   .view-tabs::-webkit-scrollbar{display:none}
   .vtab{padding:10px 16px;font-size:13px;flex-shrink:0;min-height:42px}
 
-  /* Viewer toolbar buttons: bigger so they're tappable */
-  .viewer-toolbar{padding:5px;gap:3px;top:8px;right:8px}
-  .viewer-toolbar button{width:36px;height:34px;font-size:14px}
-  .viewer-toolbar .zoom-level{min-width:50px;font-size:11px}
-  .bg-opt{width:32px;height:30px}
-  .bg-icon{width:16px;height:16px}
+  /* Viewer toolbar: balance "tappable" vs "no overflow" — the toolbar
+     has ~10 items, so on narrow phones we let it wrap to two rows and
+     keep buttons just big enough for finger taps. */
+  .viewer-toolbar{
+    padding:5px;gap:2px;top:8px;right:8px;
+    flex-wrap:wrap;justify-content:flex-end;
+    max-width:calc(100% - 16px);
+  }
+  .viewer-toolbar button{width:32px;height:30px;font-size:13px}
+  .viewer-toolbar .zoom-level{min-width:42px;font-size:11px;padding:0 4px}
+  .viewer-toolbar .sep{height:16px;margin:0 2px}
+  .bg-opt{width:28px;height:26px}
+  .bg-icon{width:14px;height:14px}
 
   /* HUD smaller and unobtrusive */
   .viewer-hud{font-size:10px;padding:5px 8px;bottom:8px;left:8px}
@@ -953,6 +982,22 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 }
 .wrap.has-image .action-bar{ display:flex; }
 .action-bar .btn{ margin-top:0 }
+
+/* On phones the action-bar is pinned to the viewport bottom so the
+   "Process" / "Download" CTA is always one tap away regardless of how
+   far the user has scrolled. body has extra padding-bottom (see ≤640
+   block) to compensate for the overlay. */
+@media (max-width:640px){
+  .wrap.has-image .action-bar{
+    position:fixed; left:0; right:0; bottom:0;
+    margin:0; padding:10px 12px max(10px, env(safe-area-inset-bottom));
+    background:linear-gradient(to top, var(--bg) 85%, rgba(15,15,22,.95));
+    border-top:1px solid var(--line);
+    box-shadow:0 -8px 24px rgba(0,0,0,.5);
+    z-index:50;
+  }
+  .action-bar .btn{ min-height:48px }
+}
 
 /* When the sticky CTA is visible, hide the duplicate buttons that
    still live inside card 4. The originals stay in the DOM (so all
