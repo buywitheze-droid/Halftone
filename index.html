@@ -516,26 +516,81 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;
 }
 @media (max-width:560px){ .flow-choice-grid{ grid-template-columns:1fr } }
+/* The two flow choice buttons are the user's first real decision in
+   the app, so they need to read as unmistakable, tappable CTAs — not
+   as a flat panel. Each one has:
+   · A tinted gradient background that pops from the card surface
+   · A 2 px brand-color border (cyan for AI, pink for "skip")
+   · A soft brand-color glow underneath
+   · A right-aligned "→" affordance that says "tap me"
+   · Hover/active states with lift and stronger glow
+   · A subtle inner highlight so they look raised, not engraved */
 .flow-card{
-  background:#101019;border:1px solid var(--line);border-radius:10px;
-  padding:14px 14px 16px;text-align:left;cursor:pointer;color:var(--text);
+  position:relative;
+  background:linear-gradient(160deg,rgba(34,224,211,.10),rgba(34,224,211,.02) 60%,rgba(34,224,211,.05));
+  border:2px solid rgba(34,224,211,.55);
+  border-radius:12px;
+  padding:16px 44px 18px 16px;
+  text-align:left;cursor:pointer;color:var(--text);
   font-family:inherit;font-size:13px;line-height:1.4;
   display:flex;flex-direction:column;gap:6px;
-  transition:border-color .15s,background .15s,transform .05s;
+  box-shadow:0 4px 14px rgba(34,224,211,.16),
+             inset 0 1px 0 rgba(255,255,255,.06);
+  transition:transform .12s ease, box-shadow .18s ease,
+             border-color .15s ease, background .15s ease;
+  -webkit-tap-highlight-color:transparent;
 }
-.flow-card:hover{ border-color:var(--cyan); background:rgba(34,224,211,.06); }
-.flow-card:active{ transform:scale(.99); }
+.flow-card::after{
+  content:"→";
+  position:absolute;right:14px;top:50%;
+  transform:translateY(-50%);
+  font-size:20px;font-weight:700;color:var(--cyan);
+  opacity:.85;transition:transform .18s ease, opacity .15s ease;
+  pointer-events:none;
+}
+.flow-card:hover{
+  transform:translateY(-2px);
+  border-color:var(--cyan);
+  background:linear-gradient(160deg,rgba(34,224,211,.18),rgba(34,224,211,.05) 60%,rgba(34,224,211,.10));
+  box-shadow:0 10px 26px rgba(34,224,211,.30),
+             inset 0 1px 0 rgba(255,255,255,.10);
+}
+.flow-card:hover::after{ transform:translateY(-50%) translateX(4px); opacity:1 }
+.flow-card:active{ transform:translateY(0) scale(.99); }
+.flow-card:focus-visible{
+  outline:2px solid var(--cyan);outline-offset:3px;
+}
+
+.flow-card.accent-pink{
+  background:linear-gradient(160deg,rgba(236,40,145,.10),rgba(236,40,145,.02) 60%,rgba(236,40,145,.05));
+  border-color:rgba(236,40,145,.55);
+  box-shadow:0 4px 14px rgba(236,40,145,.16),
+             inset 0 1px 0 rgba(255,255,255,.06);
+}
+.flow-card.accent-pink::after{ color:var(--pink) }
+.flow-card.accent-pink:hover{
+  border-color:var(--pink);
+  background:linear-gradient(160deg,rgba(236,40,145,.18),rgba(236,40,145,.05) 60%,rgba(236,40,145,.10));
+  box-shadow:0 10px 26px rgba(236,40,145,.30),
+             inset 0 1px 0 rgba(255,255,255,.10);
+}
+.flow-card.accent-pink:focus-visible{ outline-color:var(--pink); }
+
 .flow-card .flow-icon{
-  font-size:22px;line-height:1;width:36px;height:36px;display:flex;
-  align-items:center;justify-content:center;border-radius:8px;
-  background:rgba(34,224,211,.1);color:var(--cyan);
+  font-size:22px;line-height:1;width:38px;height:38px;display:flex;
+  align-items:center;justify-content:center;border-radius:10px;
+  background:rgba(34,224,211,.18);color:var(--cyan);
+  border:1px solid rgba(34,224,211,.35);
   margin-bottom:4px;
+  box-shadow:0 2px 6px rgba(34,224,211,.15);
 }
 .flow-card.accent-pink .flow-icon{
-  background:rgba(236,40,145,.1);color:var(--pink);
+  background:rgba(236,40,145,.18);color:var(--pink);
+  border-color:rgba(236,40,145,.35);
+  box-shadow:0 2px 6px rgba(236,40,145,.15);
 }
-.flow-card .flow-title{ font-weight:600;font-size:13px }
-.flow-card .flow-desc{ color:var(--muted);font-size:11px }
+.flow-card .flow-title{ font-weight:700;font-size:14px;color:var(--text) }
+.flow-card .flow-desc{ color:var(--muted);font-size:11.5px;line-height:1.45 }
 .flow-result-box{
   background:#101019;border:1px solid var(--line);border-radius:10px;
   padding:14px;margin-top:12px;
