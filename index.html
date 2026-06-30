@@ -824,6 +824,17 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     height:auto;min-height:auto;gap:16px;max-width:100%;
   }
   .wrap:not(.has-image){max-width:100%}
+  /* In iframe embeds the desktop rule forces a 2-column layout with a
+     fixed 380 px sidebar. That selector has higher specificity than the
+     bare `.wrap` rule above, so on narrow viewports we mirror its
+     specificity here to win the cascade and snap back to one column. */
+  html.embed .wrap{max-width:100%}
+  html.embed .wrap.has-image{
+    grid-template-columns:1fr;
+    grid-template-areas:"viewer" "controls";
+  }
+  html.embed .wrap.has-image > .col-left{order:initial;grid-area:controls}
+  html.embed .wrap.has-image > .card{order:initial;grid-area:viewer}
   .col-left{grid-area:controls;overflow:visible;padding-right:0;margin-right:0;min-width:0}
   .wrap > .card{
     grid-area:viewer;
