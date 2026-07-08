@@ -2596,7 +2596,14 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     // the artwork needs. s_remove is internally -100 (shown as 0) to
     // give a dead-zone buffer below the active range.
     negra:  { mode:'luminance', hex:'#000000', s_remove:-100, s_spread:0, preview:'black' },
-    blanca: { mode:'color',     hex:'#FFFFFF', s_remove:-100, s_spread:0, preview:'white' },
+    // For white garments, "neutral" defaults produce nothing usable: the
+    // s_remove:-100 maps to tolerance 0 (only exact white gets removed,
+    // so all anti-alias fringes stay as solid ink → "smeared white")
+    // and s_spread:0 maps to feather 0 (no halftone band, so gradients
+    // snap hard to solid/transparent with no dot texture). These values
+    // give a working halftone on the very common "dark art on white
+    // tee" case out of the box — user can still tune both sliders.
+    blanca: { mode:'color',     hex:'#FFFFFF', s_remove:25,  s_spread:60, preview:'white' },
     roja:   { mode:'color',     hex:'#B32219', s_remove:-100, s_spread:0, preview:'garment' },
     azul:   { mode:'color',     hex:'#1D4ED8', s_remove:-100, s_spread:0, preview:'garment' },
     gris:   { mode:'color',     hex:'#7D7D7D', s_remove:-100, s_spread:0, preview:'garment' },
