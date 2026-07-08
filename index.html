@@ -2903,14 +2903,11 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   document.querySelectorAll('#intensityToggle .intensity-btn').forEach((b) => {
     b.addEventListener('click', () => setIntensity(b.dataset.intensity));
   });
-  // Ensure the hint text starts localized correctly on first paint.
-  const initialHint = $('intensityHint');
-  if (initialHint){
-    initialHint.textContent = T(
-      INTENSITY_HINTS.en.balanced,
-      INTENSITY_HINTS.es.balanced,
-    );
-  }
+  // Note: we intentionally do NOT localize the initial hint text here.
+  // The i18n block (LANG, applyLang) runs later in this same script and
+  // will call the hint refresh at the bottom of applyLang(). Touching
+  // LANG this early throws a TDZ ReferenceError and takes the whole
+  // script down with it — including the upload button.
 
   // ==================================================================
   //   Drag & Drop sobre toda la página
