@@ -306,6 +306,40 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 .mode-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
 .mode-btn.active{background:rgba(34,224,211,.18);color:var(--text);
   box-shadow:inset 0 0 0 1px var(--cyan)}
+
+/* ==================================================================
+   INTENSITY TOGGLE — Light / Balanced / Strong
+   ==================================================================
+   Replaces the two "How much to remove" / "Halftone amount" sliders
+   in Simple mode. Three discrete presets that map to sensible
+   s_remove + s_spread combinations per garment. Advanced mode still
+   exposes the individual sliders. */
+.intensity-toggle{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;
+  padding:4px;border-radius:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+  margin-top:10px;
+}
+.intensity-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;padding:9px 6px;border-radius:7px;
+  background:transparent;border:0;color:var(--muted);cursor:pointer;
+  font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.2px;
+  transition:background-color .15s ease, color .15s ease, transform .05s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.intensity-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.intensity-btn:active{transform:scale(.98)}
+.intensity-btn.active{
+  background:rgba(34,224,211,.18);color:var(--text);
+  box-shadow:inset 0 0 0 1px var(--cyan);
+}
+.intensity-btn .intensity-icon{font-size:15px;line-height:1;margin-bottom:2px}
+.intensity-hint{
+  font-size:11px;color:var(--muted);line-height:1.4;
+  margin-top:8px;text-align:center;
+}
 .mode-btn .mode-tag{
   font-size:9px;text-transform:uppercase;letter-spacing:.6px;
   color:var(--muted);font-weight:600;
@@ -967,6 +1001,10 @@ body[data-ux="advanced"] .simple-only{display:none !important}
 
   /* Mode toggle: bigger */
   .mode-btn{padding:12px 6px;min-height:54px;font-size:13px}
+  /* Intensity toggle: same larger tap targets as mode-btn on mobile */
+  .intensity-btn{padding:12px 6px;min-height:54px;font-size:13px}
+  .intensity-btn .intensity-icon{font-size:17px}
+  .intensity-hint{font-size:12px}
 
   /* View tabs: bigger and scrollable horizontally if needed */
   .view-tabs{margin:0 0 10px 0;padding:0 0 8px 0;overflow-x:auto;
@@ -1797,19 +1835,35 @@ body[data-ux="advanced"] .simple-only{display:none !important}
         <span id="ppLabel">Color picked</span>
       </div>
 
-      <!-- ============== SLIDERS SIMPLES (modo SIMPLE) ============== -->
+      <!-- ============== INTENSITY (modo SIMPLE) ==============
+           Three-button toggle replaces the old s_remove / s_spread
+           sliders. Each button maps to a per-garment (s_remove, s_spread)
+           preset — see INTENSITIES in the JS below. Advanced mode still
+           exposes the individual sliders for fine control. -->
       <div class="simple-only">
-        <label>How much to remove <i class="help" data-tip="Starts at 0 (remove nothing). Raise gradually until the garment color disappears from areas that should be transparent. The slider has extra room below 0 (shown as 0) so you can dial in a truly clean baseline before any removal kicks in.">?</i><span class="val"><span id="v_s_remove">0</span><span class="val-word muted" id="w_s_remove">None</span></span></label>
-        <div class="slider-wrap">
-          <input type="range" id="s_remove" min="-100" max="100" step="1" value="-100">
-          <div class="slider-ticks" aria-hidden="true"><span class="major"></span><span></span><span></span><span></span><span class="major"></span><span></span><span></span><span></span><span class="major"></span></div>
+        <label id="intensityLabel">Halftone strength <i class="help" data-tip="Preset combinations of removal + halftone width. Light preserves more of the design (subtle effect); Strong removes more of the garment color and produces a wider halftone band.">?</i></label>
+        <div class="intensity-toggle" id="intensityToggle" role="tablist" aria-labelledby="intensityLabel">
+          <button type="button" class="intensity-btn"          data-intensity="light"    role="tab" aria-selected="false">
+            <span class="intensity-icon">◔</span><span class="intensity-name">Light</span>
+          </button>
+          <button type="button" class="intensity-btn active"   data-intensity="balanced" role="tab" aria-selected="true">
+            <span class="intensity-icon">◑</span><span class="intensity-name">Balanced</span>
+          </button>
+          <button type="button" class="intensity-btn"          data-intensity="strong"   role="tab" aria-selected="false">
+            <span class="intensity-icon">●</span><span class="intensity-name">Strong</span>
+          </button>
         </div>
+        <div class="intensity-hint" id="intensityHint">Balanced removes the garment color and halftones the mid-tones.</div>
 
-        <label>Halftone amount <i class="help" data-tip="Higher = wider transition between garment and solid ink, with more visible dots. Lower = harder edges. Starts at 0.">?</i><span class="val"><span id="v_s_spread">0</span><span class="val-word muted" id="w_s_spread">Hard edge</span></span></label>
-        <div class="slider-wrap">
-          <input type="range" id="s_spread" min="0" max="100" step="1" value="0">
-          <div class="slider-ticks" aria-hidden="true"><span class="major"></span><span></span><span></span><span class="major"></span><span></span><span></span><span class="major"></span><span></span><span></span><span class="major"></span></div>
-        </div>
+        <!-- The two sliders live on but hidden — SIMPLE_SYNC and the
+             worker keep reading their .value, and the intensity buttons
+             set them programmatically. -->
+        <input type="range" id="s_remove" min="-100" max="100" step="1" value="-100" hidden>
+        <input type="range" id="s_spread" min="0"    max="100" step="1" value="0"    hidden>
+        <span id="v_s_remove" hidden>0</span>
+        <span id="v_s_spread" hidden>0</span>
+        <span id="w_s_remove" hidden></span>
+        <span id="w_s_spread" hidden></span>
       </div>
 
       <!-- ============ CONTROLES AVANZADOS (modo AVANZADO) ============ -->
@@ -2472,6 +2526,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     // UX
     uxMode: 'simple',            // 'simple' | 'advanced' — qué controles ve el usuario
     garmentPreset: 'negra',      // preset de tipo de prenda activo (ver GARMENT_PRESETS)
+    intensity:    'balanced',    // 'light' | 'balanced' | 'strong' — fuerza de la separación
     // Vistas
     viewMode: 'result',          // 'result' | 'original' | 'mask' | 'zones'
     previewBg: 'checker',        // 'checker' | 'garment' | 'black' | 'white' — solo visual
@@ -2591,33 +2646,127 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   //   color, no son números mágicos: se eligieron probando el screen AM
   //   con coverage típica.
   const GARMENT_PRESETS = {
-    // Both simple sliders default to 0 so every preset starts from
-    // "remove nothing, no halftone" and the user dials up only what
-    // the artwork needs. s_remove is internally -100 (shown as 0) to
-    // give a dead-zone buffer below the active range.
-    negra:  { mode:'luminance', hex:'#000000', s_remove:-100, s_spread:0, preview:'black' },
-    // Color-distance presets: `tol` sets the removal envelope around
-    // the garment color, `feather` sets the halftone gradient beyond
-    // it. Anything past tol+feather prints as SOLID ink.
-    //
-    // Key constraint: pure black should always end up in the "solid"
-    // region so dark line art stays crisp. For chromatic garments
-    // that means tol+feather must stay well below ~0.45 Oklab (the
-    // approximate distance from a mid-value color to pure black).
-    //
-    //   Preset      Removed         Halftoned       Solid ink
-    //   White       < 0.125         0.125 – 0.475   > 0.475
-    //   Red/Blue/Gr < 0.200         0.200 – 0.350   > 0.350
-    //   Gray        < 0.175         0.175 – 0.325   > 0.325
-    //   Beige       < 0.150         0.150 – 0.330   > 0.330
-    blanca: { mode:'color',     hex:'#FFFFFF', s_remove:25,  s_spread:60, preview:'white' },
-    roja:   { mode:'color',     hex:'#B32219', s_remove:40,  s_spread:25, preview:'garment' },
-    azul:   { mode:'color',     hex:'#1D4ED8', s_remove:40,  s_spread:25, preview:'garment' },
-    gris:   { mode:'color',     hex:'#7D7D7D', s_remove:35,  s_spread:25, preview:'garment' },
-    beige:  { mode:'color',     hex:'#D4C39C', s_remove:30,  s_spread:30, preview:'garment' },
-    verde:  { mode:'color',     hex:'#1F5340', s_remove:40,  s_spread:25, preview:'garment' },
-    custom: { mode:'color',     hex:null,      s_remove:40,  s_spread:25, preview:'garment' },
+    negra:  { mode:'luminance', hex:'#000000', preview:'black'   },
+    blanca: { mode:'color',     hex:'#FFFFFF', preview:'white'   },
+    roja:   { mode:'color',     hex:'#B32219', preview:'garment' },
+    azul:   { mode:'color',     hex:'#1D4ED8', preview:'garment' },
+    gris:   { mode:'color',     hex:'#7D7D7D', preview:'garment' },
+    beige:  { mode:'color',     hex:'#D4C39C', preview:'garment' },
+    verde:  { mode:'color',     hex:'#1F5340', preview:'garment' },
+    custom: { mode:'color',     hex:null,      preview:'garment' },
   };
+
+  // Per-garment "intensity" table. Replaces the two Simple-mode sliders
+  // (s_remove / s_spread) with three preset combinations. Each entry
+  // maps to (s_remove, s_spread) which SIMPLE_SYNC then propagates to
+  // the advanced-mode fields (color_tol / color_feather / black_cut /
+  // white_cut). For chromatic garments, tol+feather is kept ≤ ~0.35
+  // Oklab so pure black always lands in the "solid ink" region.
+  //   Level    → Removed / Halftoned / Solid ink
+  //   Light    → tighter removal, narrow halftone (subtle)
+  //   Balanced → recommended defaults for most designs
+  //   Strong   → wider removal + wider halftone (aggressive)
+  const INTENSITIES = {
+    // negra → luminance mode. SIMPLE_SYNC maps:
+    //   black_cut = max(0,v) * 180 / 100
+    //   white_cut = black_cut + 80 + (v/100) * 100
+    negra: {
+      light:    { s_remove:  0, s_spread:  0 }, // bc=0,  wc=80
+      balanced: { s_remove: 15, s_spread: 25 }, // bc=27, wc=132
+      strong:   { s_remove: 30, s_spread: 40 }, // bc=54, wc=174
+    },
+    // Color-distance presets. tol / feather are UI units → Oklab via /200.
+    blanca: {
+      light:    { s_remove: 15, s_spread: 40 },
+      balanced: { s_remove: 25, s_spread: 60 },
+      strong:   { s_remove: 40, s_spread: 80 },
+    },
+    roja: {
+      light:    { s_remove: 25, s_spread: 18 },
+      balanced: { s_remove: 40, s_spread: 25 },
+      strong:   { s_remove: 55, s_spread: 32 },
+    },
+    azul: {
+      light:    { s_remove: 25, s_spread: 18 },
+      balanced: { s_remove: 40, s_spread: 25 },
+      strong:   { s_remove: 55, s_spread: 32 },
+    },
+    verde: {
+      light:    { s_remove: 25, s_spread: 18 },
+      balanced: { s_remove: 40, s_spread: 25 },
+      strong:   { s_remove: 55, s_spread: 32 },
+    },
+    gris: {
+      light:    { s_remove: 20, s_spread: 18 },
+      balanced: { s_remove: 35, s_spread: 25 },
+      strong:   { s_remove: 50, s_spread: 32 },
+    },
+    beige: {
+      light:    { s_remove: 18, s_spread: 22 },
+      balanced: { s_remove: 30, s_spread: 30 },
+      strong:   { s_remove: 45, s_spread: 40 },
+    },
+    custom: {
+      light:    { s_remove: 25, s_spread: 18 },
+      balanced: { s_remove: 40, s_spread: 25 },
+      strong:   { s_remove: 55, s_spread: 32 },
+    },
+  };
+
+  // Pushes the (s_remove, s_spread) pair for the current garment +
+  // intensity combo into the hidden sliders, then hands off to
+  // SIMPLE_SYNC so the advanced-mode fields update as well. Optional
+  // { skipReprocess } suppresses the automatic re-run so callers that
+  // change multiple things at once only trigger one process pass.
+  function applyIntensityValues(opts){
+    const preset = S.garmentPreset || 'negra';
+    const level  = S.intensity     || 'balanced';
+    const vals   = (INTENSITIES[preset] || INTENSITIES.negra)[level]
+                || INTENSITIES[preset].balanced;
+    ['s_remove','s_spread'].forEach((id) => {
+      const v = vals[id];
+      const el = $(id);
+      if (!el) return;
+      el.value = v;
+      const label = $('v_' + id);
+      if (label) label.textContent = v;
+      SIMPLE_SYNC[id](v);
+    });
+    if (!(opts && opts.skipReprocess) && S.sourceCanvas) scheduleProcess();
+  }
+
+  function setIntensity(level){
+    if (!['light','balanced','strong'].includes(level)) return;
+    S.intensity = level;
+    document.querySelectorAll('#intensityToggle .intensity-btn').forEach((b) => {
+      const on = b.dataset.intensity === level;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const hint = $('intensityHint');
+    if (hint){
+      const key = 'intensity_hint_' + level;
+      hint.textContent = T(
+        INTENSITY_HINTS.en[level],
+        INTENSITY_HINTS.es[level],
+      );
+    }
+    applyIntensityValues();
+  }
+
+  const INTENSITY_HINTS = {
+    en: {
+      light:    'Light: minimal removal, keeps most of the design intact.',
+      balanced: 'Balanced: removes the garment color and halftones the mid-tones.',
+      strong:   'Strong: aggressive removal, wide halftone band.',
+    },
+    es: {
+      light:    'Ligero: quita muy poco, conserva casi todo el diseño.',
+      balanced: 'Balanceado: quita el color de la prenda y halftonea los medios tonos.',
+      strong:   'Fuerte: remueve más color y crea una banda de halftone amplia.',
+    },
+  };
+
   function applyGarmentPreset(name){
     const p = GARMENT_PRESETS[name];
     if (!p) return;
@@ -2630,14 +2779,11 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     if (pp) pp.style.display = 'none';
     setSeparationMode(p.mode);
     if (p.hex) setGarmentColorFromHex(p.hex, { skipReprocess: true, keepPreset: true });
-    // Cargar sliders simples y propagar a los avanzados
-    ['s_remove','s_spread'].forEach((id) => {
-      const v = p[id];
-      const el = $(id);
-      el.value = v;
-      $('v_' + id).textContent = v;
-      SIMPLE_SYNC[id](v);
-    });
+    // Apply the current intensity level for the new garment. This
+    // takes care of updating both the (hidden) simple sliders and
+    // the advanced-mode fields via SIMPLE_SYNC. Also triggers a
+    // reprocess if a canvas is loaded.
+    applyIntensityValues({ skipReprocess: true });
     // Note: we intentionally do NOT change the preview background here.
     // The garment color and the viewer background used to be linked,
     // but that made it look like the preview was "jumping" every time
@@ -2750,6 +2896,21 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   document.querySelectorAll('#garmentTypeGrid .g-type').forEach((b) => {
     b.addEventListener('click', () => applyGarmentPreset(b.dataset.preset));
   });
+
+  // ==================================================================
+  //   Click handler de la Intensidad (Light / Balanced / Strong)
+  // ==================================================================
+  document.querySelectorAll('#intensityToggle .intensity-btn').forEach((b) => {
+    b.addEventListener('click', () => setIntensity(b.dataset.intensity));
+  });
+  // Ensure the hint text starts localized correctly on first paint.
+  const initialHint = $('intensityHint');
+  if (initialHint){
+    initialHint.textContent = T(
+      INTENSITY_HINTS.en.balanced,
+      INTENSITY_HINTS.es.balanced,
+    );
+  }
 
   // ==================================================================
   //   Drag & Drop sobre toda la página
@@ -4703,6 +4864,14 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     { sel: '#ppLabel', en: 'Color picked', es: 'Color elegido' },
     { labelFor: 's_remove', en: 'How much to remove ', es: 'Cuánto eliminar ', textOnly: true },
     { labelFor: 's_spread', en: 'Halftone amount ',   es: 'Cantidad de semitono ', textOnly: true },
+    { sel: '#intensityLabel',
+        en: 'Halftone strength ', es: 'Fuerza del semitono ', textOnly: true },
+    { sel: '#intensityToggle .intensity-btn[data-intensity="light"] .intensity-name',
+        en: 'Light',    es: 'Ligero',    textOnly: true },
+    { sel: '#intensityToggle .intensity-btn[data-intensity="balanced"] .intensity-name',
+        en: 'Balanced', es: 'Balanceado', textOnly: true },
+    { sel: '#intensityToggle .intensity-btn[data-intensity="strong"] .intensity-name',
+        en: 'Strong',   es: 'Fuerte',    textOnly: true },
     { sel: '#card-garment .advanced-only .section-title', en: 'Separation mode', es: 'Modo de separación' },
     { sel: '.mode-btn[data-mode="luminance"] > span:first-child', en: 'By luminance', es: 'Por luminancia' },
     { sel: '.mode-btn[data-mode="luminance"] .mode-tag', en: 'black garment', es: 'prenda negra' },
@@ -4842,6 +5011,15 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     if (typeof refreshSliderWord === 'function'){
       refreshSliderWord('s_remove');
       refreshSliderWord('s_spread');
+    }
+    // Intensity hint text is set imperatively (not via the TRANSLATIONS
+    // list) so we re-localize it manually on every language switch.
+    const hintEl = document.getElementById('intensityHint');
+    if (hintEl && typeof INTENSITY_HINTS !== 'undefined'){
+      const level = (typeof S !== 'undefined' && S && S.intensity) || 'balanced';
+      hintEl.textContent = LANG === 'es'
+        ? INTENSITY_HINTS.es[level]
+        : INTENSITY_HINTS.en[level];
     }
     // Status strip: re-render whatever it currently shows so dynamic
     // labels (Ready / Working / Done / Upload an image…) get translated.
