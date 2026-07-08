@@ -2596,23 +2596,27 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     // the artwork needs. s_remove is internally -100 (shown as 0) to
     // give a dead-zone buffer below the active range.
     negra:  { mode:'luminance', hex:'#000000', s_remove:-100, s_spread:0, preview:'black' },
-    // Color-distance presets need meaningful defaults, but the "right"
-    // tolerance depends on how varied the artwork's reds/blues/etc.
-    // are. Pure hues (like white) hit their target closely so a small
-    // tolerance is enough. Chromatic colors (red, blue, green, custom)
-    // have to catch the entire family of shades in the design —
-    // gradients, JPEG noise, edge shading — so they get a wider net.
-    // Ranges in Oklab distance (tol → tol+feather):
-    //   White : 0.125 – 0.475  (whites and near-whites only)
-    //   Reds  : 0.200 – 0.575  (catches darker/lighter shades of the same hue)
-    //   Etc.
+    // Color-distance presets: `tol` sets the removal envelope around
+    // the garment color, `feather` sets the halftone gradient beyond
+    // it. Anything past tol+feather prints as SOLID ink.
+    //
+    // Key constraint: pure black should always end up in the "solid"
+    // region so dark line art stays crisp. For chromatic garments
+    // that means tol+feather must stay well below ~0.45 Oklab (the
+    // approximate distance from a mid-value color to pure black).
+    //
+    //   Preset      Removed         Halftoned       Solid ink
+    //   White       < 0.125         0.125 – 0.475   > 0.475
+    //   Red/Blue/Gr < 0.200         0.200 – 0.350   > 0.350
+    //   Gray        < 0.175         0.175 – 0.325   > 0.325
+    //   Beige       < 0.150         0.150 – 0.330   > 0.330
     blanca: { mode:'color',     hex:'#FFFFFF', s_remove:25,  s_spread:60, preview:'white' },
-    roja:   { mode:'color',     hex:'#B32219', s_remove:40,  s_spread:75, preview:'garment' },
-    azul:   { mode:'color',     hex:'#1D4ED8', s_remove:40,  s_spread:75, preview:'garment' },
-    gris:   { mode:'color',     hex:'#7D7D7D', s_remove:35,  s_spread:70, preview:'garment' },
-    beige:  { mode:'color',     hex:'#D4C39C', s_remove:30,  s_spread:70, preview:'garment' },
-    verde:  { mode:'color',     hex:'#1F5340', s_remove:40,  s_spread:75, preview:'garment' },
-    custom: { mode:'color',     hex:null,      s_remove:40,  s_spread:75, preview:'garment' },
+    roja:   { mode:'color',     hex:'#B32219', s_remove:40,  s_spread:25, preview:'garment' },
+    azul:   { mode:'color',     hex:'#1D4ED8', s_remove:40,  s_spread:25, preview:'garment' },
+    gris:   { mode:'color',     hex:'#7D7D7D', s_remove:35,  s_spread:25, preview:'garment' },
+    beige:  { mode:'color',     hex:'#D4C39C', s_remove:30,  s_spread:30, preview:'garment' },
+    verde:  { mode:'color',     hex:'#1F5340', s_remove:40,  s_spread:25, preview:'garment' },
+    custom: { mode:'color',     hex:null,      s_remove:40,  s_spread:25, preview:'garment' },
   };
   function applyGarmentPreset(name){
     const p = GARMENT_PRESETS[name];
