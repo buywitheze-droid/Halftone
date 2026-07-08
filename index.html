@@ -319,9 +319,13 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   padding:4px;border-radius:10px;
   background:rgba(255,255,255,.04);
   border:1px solid var(--border);
-  margin-top:10px;
+  /* Extra top margin so the floating "Recommended" pill on the Light
+     button has breathing room and doesn't clip against the label. */
+  margin-top:16px;
+  overflow:visible;
 }
 .intensity-btn{
+  position:relative;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:2px;padding:9px 6px;border-radius:7px;
   background:transparent;border:0;color:var(--muted);cursor:pointer;
@@ -336,6 +340,18 @@ body[data-ux="advanced"] .simple-only{display:none !important}
   box-shadow:inset 0 0 0 1px var(--cyan);
 }
 .intensity-btn .intensity-icon{font-size:15px;line-height:1;margin-bottom:2px}
+/* "Recommended" pill on the Light preset — sits above the button so
+   it doesn't push the icon/label around. Uses the same cyan accent as
+   the active state so users read it as "this is the default pick". */
+.intensity-btn .intensity-badge{
+  position:absolute;top:-8px;left:50%;transform:translateX(-50%);
+  padding:2px 7px;border-radius:999px;
+  background:linear-gradient(135deg, var(--cyan), var(--pink));
+  color:#0b0f16;font-size:9px;font-weight:800;letter-spacing:.6px;
+  text-transform:uppercase;line-height:1;white-space:nowrap;
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+  pointer-events:none;
+}
 .intensity-hint{
   font-size:11px;color:var(--muted);line-height:1.4;
   margin-top:8px;text-align:center;
@@ -1843,17 +1859,18 @@ body[data-ux="advanced"] .simple-only{display:none !important}
       <div class="simple-only">
         <label id="intensityLabel">Halftone strength <i class="help" data-tip="Preset combinations of removal + halftone width. Light preserves more of the design (subtle effect); Strong removes more of the garment color and produces a wider halftone band.">?</i></label>
         <div class="intensity-toggle" id="intensityToggle" role="tablist" aria-labelledby="intensityLabel">
-          <button type="button" class="intensity-btn"          data-intensity="light"    role="tab" aria-selected="false">
+          <button type="button" class="intensity-btn active"   data-intensity="light"    role="tab" aria-selected="true">
+            <span class="intensity-badge" id="intensityBadge">Recommended</span>
             <span class="intensity-icon">◔</span><span class="intensity-name">Light</span>
           </button>
-          <button type="button" class="intensity-btn active"   data-intensity="balanced" role="tab" aria-selected="true">
+          <button type="button" class="intensity-btn"          data-intensity="balanced" role="tab" aria-selected="false">
             <span class="intensity-icon">◑</span><span class="intensity-name">Balanced</span>
           </button>
           <button type="button" class="intensity-btn"          data-intensity="strong"   role="tab" aria-selected="false">
             <span class="intensity-icon">●</span><span class="intensity-name">Strong</span>
           </button>
         </div>
-        <div class="intensity-hint" id="intensityHint">Balanced removes the garment color and halftones the mid-tones.</div>
+        <div class="intensity-hint" id="intensityHint">Light: minimal removal, keeps most of the design intact.</div>
 
         <!-- The two sliders live on but hidden — SIMPLE_SYNC and the
              worker keep reading their .value, and the intensity buttons
@@ -2526,7 +2543,7 @@ body[data-ux="advanced"] .simple-only{display:none !important}
     // UX
     uxMode: 'simple',            // 'simple' | 'advanced' — qué controles ve el usuario
     garmentPreset: 'negra',      // preset de tipo de prenda activo (ver GARMENT_PRESETS)
-    intensity:    'balanced',    // 'light' | 'balanced' | 'strong' — fuerza de la separación
+    intensity:    'light',       // 'light' | 'balanced' | 'strong' — Light is the default (recommended)
     // Vistas
     viewMode: 'result',          // 'result' | 'original' | 'mask' | 'zones'
     previewBg: 'checker',        // 'checker' | 'garment' | 'black' | 'white' — solo visual
@@ -4865,6 +4882,8 @@ body[data-ux="advanced"] .simple-only{display:none !important}
         en: 'Halftone strength ', es: 'Fuerza del semitono ', textOnly: true },
     { sel: '#intensityToggle .intensity-btn[data-intensity="light"] .intensity-name',
         en: 'Light',    es: 'Ligero',    textOnly: true },
+    { sel: '#intensityBadge',
+        en: 'Recommended', es: 'Recomendado', textOnly: true },
     { sel: '#intensityToggle .intensity-btn[data-intensity="balanced"] .intensity-name',
         en: 'Balanced', es: 'Balanceado', textOnly: true },
     { sel: '#intensityToggle .intensity-btn[data-intensity="strong"] .intensity-name',
